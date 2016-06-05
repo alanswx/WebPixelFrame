@@ -1,20 +1,4 @@
-/* 
-  FSWebServer - Example WebServer with SPIFFS backend for esp8266
-  Copyright (c) 2015 Hristo Gochkov. All rights reserved.
-  This file is part of the ESP8266WebServer library for Arduino environment.
- 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-  
+/*  
   upload the contents of the data folder with MkSPIFFS Tool ("ESP8266 Sketch Data Upload" in Tools menu in Arduino IDE)
   or you can upload the contents of a folder if you CD in that folder and run the following command:
   for file in `ls -A1`; do curl -F "file=@$PWD/$file" esp8266fs.local/edit; done
@@ -30,6 +14,8 @@
 #include <NeoPixelBus.h>
 #include <NeoPixelAnimator.h>
 #include "NewBitmap.h"
+#include "DisplayPixelsText.h"
+#include "DisplayPixelsAnimatedGIF.h"
 
 #define DBG_OUTPUT_PORT Serial
 
@@ -37,22 +23,16 @@ const char* ssid = "Alan";
 const char* password = "***REMOVED***";
 const char* host = "esp8266fs";
 
-// make sure to set these panel values to the sizes of yours
-const uint8_t PanelWidth = 8;  // 8 pixel x 8 pixel matrix of leds
-const uint8_t PanelHeight = 8;
-const uint8_t TileWidth = 1;  // laid out in 4 panels x 2 panels mosaic
-const uint8_t TileHeight = 1;
 
-const uint16_t PixelCount = PanelWidth * PanelHeight * TileWidth * TileHeight;
+NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> *strip= new NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> (PixelCount, 2);
 
- typedef RowMajorAlternatingLayout MyPanelLayout;
-typedef NeoGrbFeature MyPixelColorFeature;
 
-NeoMosaic <MyPanelLayout> mosaic(
-    PanelWidth,
-    PanelHeight,
-    TileWidth,
-    TileHeight);
+DisplayPixelsText *pixelText = new DisplayPixelsText();
+DisplayPixelsAnimatedGIF *pixelGIF = new DisplayPixelsAnimatedGIF();
+
+DisplayPixels *curPixel = pixelText;
+
+
 
 uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
 {
@@ -60,32 +40,13 @@ uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
   return mosaic.Map(x,y);
 
 }
-long setupStartMillis;
-#include "C64FontUpper.h"
-#include "C64FontLower.h"
-#include "font5x7.h"
-#define TOTALFONTS    3
-#define FONTHEADERSIZE    6
-const unsigned char *fontsPointer[TOTALFONTS] = {
-   font5x7
-  , C64FontUpper
-  , C64FontLower 
-  };
-uint8_t foreColor, drawMode, fontWidth, fontHeight, fontType, fontStartChar, fontTotalChar, cursorX, cursorY;
-uint16_t fontMapWidth;
+
 
 const uint16_t AnimCount = 1; // we only need one
 
-String message = "Hello World";
-int textStartX=8;
+//String message = "Hello World";
 
 
-void pixel(uint8_t x, uint8_t y,  RgbColor color, uint8_t mode);
-uint8_t setFontType(uint8_t type);
-int drawString(uint8_t x, uint8_t y, String text, RgbColor color);
-int  drawChar(uint8_t x, uint8_t y, uint8_t c, RgbColor color, uint8_t mode) ;
-
-NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> strip(PixelCount, 2);
 NeoPixelAnimator animations(AnimCount); // NeoPixel animation management object
 
 // our NeoBitmapFile will use the same color feature as NeoPixelBus and
@@ -101,6 +62,12 @@ RgbColor white(128);
 RgbColor black(0);
 
 ESP8266WebServer server(80);
+
+void updateScreenCallbackS()
+{
+  server.handleClient();
+}
+
 //holds the current upload
 File fsUploadFile;
 
@@ -135,6 +102,21 @@ String getContentType(String filename){
   return "text/plain";
 }
 
+
+
+
+bool handleShowGIF(String path)
+{
+     DBG_OUTPUT_PORT.println("handleShowGIF: " + path);
+
+
+  pixelGIF->SetGIF(path);
+  curPixel=pixelGIF;
+  
+    server.send(200, "text/plain", "");
+  return true;
+}
+
 bool handleShow(String path){
     DBG_OUTPUT_PORT.println("handleShow: " + path);
      ESP.wdtFeed();
@@ -164,6 +146,8 @@ bool handleFileRead(String path){
   String contentType = getContentType(path);
   if (contentType=="image/x-windows-bmp")
     return handleShow(path);
+  else if (contentType=="image/gif")
+    return handleShowGIF(path);
   String pathWithGz = path + ".gz";
   if(SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)){
     if(SPIFFS.exists(pathWithGz))
@@ -250,10 +234,14 @@ void showImageList()
 void setScrollText()
 {
   if(!server.hasArg("text")) {server.send(500, "text/plain", "BAD ARGS"); return;}
-  message = server.arg("text");
-  textStartX=8;
+ 
+
+  pixelText->SetText(server.arg("text"));
+  
   String output = "Setting scroll to: ";
-  output+=message;
+  output+=server.arg("text");
+  
+  curPixel = pixelText;
   
   server.send(200, "text/html", output);
 
@@ -285,13 +273,14 @@ void handleFileList() {
 }
 
 void setup(void){
-  setupStartMillis = millis();
+ 
   DBG_OUTPUT_PORT.begin(115200);
   DBG_OUTPUT_PORT.print("\n");
   DBG_OUTPUT_PORT.setDebugOutput(true);
- setFontType(2);
- strip.Begin();
-    strip.Show();
+ 
+
+ strip->Begin();
+    strip->Show();
   
   SPIFFS.begin();
   {
@@ -368,171 +357,15 @@ void setup(void){
  
 void loop(void){
   server.handleClient();
-   image.Blt(strip,0,0,0,0,8,8,ourLayoutMapCallback);
-   // drawString(textStartX,0,message,red);
-  int now = millis();
-   if (now -   setupStartMillis  >100000/1000 )
-   {
-    setupStartMillis=now;
-   textStartX--;
-     int end = message.length()*fontWidth * -1;
-   if (textStartX <  end) textStartX = 8; 
-   }
-    strip.Show();
+  if (curPixel) curPixel->UpdateAnimation();
+   //image.Blt(*strip,0,0,0,0,8,8,ourLayoutMapCallback);
+
+
+ //strip.SetPixelColor(mosaic.Map(0, 0), red);
+   //strip.Show();
+    strip->Show();
     
 }
 
 
-
-/** \brief Draw character with color and mode.
-  Draw character c using color and draw mode at x,y.
-*/
-int  drawChar(uint8_t x, uint8_t y, uint8_t c, RgbColor color, uint8_t mode) {
-  // TODO - New routine to take font of any height, at the moment limited to font height in multiple of 8 pixels
-
-  uint8_t rowsToDraw, row, tempC;
-  uint8_t i, j, temp;
-  uint16_t charPerBitmapRow, charColPositionOnBitmap, charRowPositionOnBitmap, charBitmapStartPosition;
-
-  if ((c < fontStartChar) || (c > (fontStartChar + fontTotalChar - 1))) // no bitmap for the required c
-    return fontWidth;
-
-  tempC = c - fontStartChar;
-
-  // each row (in datasheet is call page) is 8 bits high, 16 bit high character will have 2 rows to be drawn
-  rowsToDraw = fontHeight / 8; // 8 is LCD's page size, see SSD1306 datasheet
-  if (rowsToDraw <= 1) rowsToDraw = 1;
-
-  // the following draw function can draw anywhere on the screen, but SLOW pixel by pixel draw
-  if (rowsToDraw == 1) {
-    for  (i = 0; i < fontWidth + 1; i++) {
-      if (i == fontWidth) // this is done in a weird way because for 5x7 font, there is no margin, this code add a margin after col 5
-        temp = 0;
-      else
-        temp = pgm_read_byte(fontsPointer[fontType] + FONTHEADERSIZE + (tempC * fontWidth) + i);
-
-      for (j = 0; j < 8; j++) { // 8 is the LCD's page height (see datasheet for explanation)
-        if (temp & 0x1) {
-          pixel(x + i, y + j, color, mode);
-
-        }
-        else {
-          pixel(x + i, y + j, black, mode);
-
-        }
-
-        temp >>= 1;
-      }
-    }
-    return fontWidth;
-  }
-
-  // font height over 8 bit
-  // take character "0" ASCII 48 as example
-  charPerBitmapRow = fontMapWidth / fontWidth; // 256/8 =32 char per row
-  charColPositionOnBitmap = tempC % charPerBitmapRow; // =16
-  charRowPositionOnBitmap = int(tempC / charPerBitmapRow); // =1
-  charBitmapStartPosition = (charRowPositionOnBitmap * fontMapWidth * (fontHeight / 8)) + (charColPositionOnBitmap * fontWidth) ;
-
-  // each row on LCD is 8 bit height (see datasheet for explanation)
-  for (row = 0; row < rowsToDraw; row++) {
-    for (i = 0; i < fontWidth; i++) {
-      temp = pgm_read_byte(fontsPointer[fontType] + FONTHEADERSIZE + (charBitmapStartPosition + i + (row * fontMapWidth)));
-      for (j = 0; j < 8; j++) { // 8 is the LCD's page height (see datasheet for explanation)
-        if (temp & 0x1) {
-          pixel(x + i, y + j + (row * 8), color, mode);
-
-        }
-        else {
-          pixel(x + i, y + j + (row * 8), black, mode);
-
-        }
-        temp >>= 1;
-      }
-    }
-  }
-
-  /*
-    fast direct memory draw but has a limitation to draw in ROWS
-    // only 1 row to draw for font with 8 bit height
-    if (rowsToDraw==1) {
-    for (i=0; i<fontWidth; i++ ) {
-      screenmemory[temp + (line*LCDWIDTH) ] = pgm_read_byte(fontsPointer[fontType]+FONTHEADERSIZE+(c*fontWidth)+i);
-      temp++;
-    }
-    return;
-    }
-    // font height over 8 bit
-    // take character "0" ASCII 48 as example
-    charPerBitmapRow=fontMapWidth/fontWidth;  // 256/8 =32 char per row
-    charColPositionOnBitmap=c % charPerBitmapRow;  // =16
-    charRowPositionOnBitmap=int(c/charPerBitmapRow); // =1
-    charBitmapStartPosition=(fontMapWidth * (fontHeight/8)) + (charColPositionOnBitmap * fontWidth);
-
-    temp=x;
-    for (row=0; row<rowsToDraw; row++) {
-    for (i=0; i<fontWidth; i++ ) {
-      screenmemory[temp + (( (line*(fontHeight/8)) +row)*LCDWIDTH) ] = pgm_read_byte(fontsPointer[fontType]+FONTHEADERSIZE+(charBitmapStartPosition+i+(row*fontMapWidth)));
-      temp++;
-    }
-    temp=x;
-    }
-  */
- return fontWidth;
-}
-
-void pixel(uint8_t x, uint8_t y,  RgbColor color, uint8_t mode)
-{
- // uint8_t i = (y * ledsPerStrip + x);
-  if (x>= PanelWidth)
-  {
-    /* Serial.print("overflow:");
-     Serial.print(x);
-     Serial.print(",");
-     Serial.println(y);
-     */
-     return;
-  } else if (x<0)
-  {
-    Serial.println("less than 0");
-    return;
-  }
-    strip.SetPixelColor(mosaic.Map(x, y), color);
- /*
-Serial.print("setPixel:");
-Serial.print(x);
-Serial.print(",");
-Serial.println(y);
-*/
-
-}
-
-uint8_t setFontType(uint8_t type) {
-  if ((type >= TOTALFONTS) || (type < 0))
-    return false;
-
-  fontType = type;
-  fontWidth = pgm_read_byte(fontsPointer[fontType] + 0);
-  fontHeight = pgm_read_byte(fontsPointer[fontType] + 1);
-  fontStartChar = pgm_read_byte(fontsPointer[fontType] + 2);
-  fontTotalChar = pgm_read_byte(fontsPointer[fontType] + 3);
-  fontMapWidth = (pgm_read_byte(fontsPointer[fontType] + 4) * 100) + pgm_read_byte(fontsPointer[fontType] + 5); // two bytes values into integer 16
-  return true;
-}
-
-
-int drawString(uint8_t x, uint8_t y, String text, RgbColor color)
-{
-  // start at x, and call drawChar for each.. increment x, and return it..
-  int length = text.length();
-  int last = x;
-  int totalWidth = 0;
-  for (int i =0; i < length; i++)
-  {
-     int width=drawChar(last,0, text.charAt(i), color,0);
-     last+=width;
-     totalWidth+=width;
-  }
- return totalWidth; 
-}
 

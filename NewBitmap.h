@@ -94,7 +94,6 @@ public:
         {
             _file.close();
         }
- Serial.println("Begin 1");
         if (!file || !file.seek(0,SeekSet))
         {
             goto error;
@@ -114,7 +113,6 @@ public:
         {
             goto error;
         }
- Serial.println("Begin 2");
 
         result = _file.read((uint8_t*)&bmpInfoHeader, sizeof(bmpInfoHeader));
 
@@ -125,14 +123,12 @@ public:
         {
             goto error;
         }
- Serial.println("Begin 3");
 
         if (!(24 == bmpInfoHeader.BitsPerPixel ||
             32 == bmpInfoHeader.BitsPerPixel))
         {
             goto error;
         }
- Serial.println("Begin 3");
 
         // save the interesting information
         _width = abs(bmpInfoHeader.Width);
