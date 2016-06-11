@@ -31,12 +31,12 @@ print_r($files);
 
 
 
-@mkdir( "../data/po" );
-$outFile = fopen("../data/pindex.txt", 'w') or die("can't open file");
+@mkdir( "po" );
+$outFile = fopen("pindex.txt", 'w') or die("can't open file");
 
 $count=0;
 foreach ($files as $key=>$value) {
-  copy($value,"../data/po/".$count);
+  copy($value,"po/".$count);
   fwrite($outFile, "$count|$value\n");
   $count++;
 }
