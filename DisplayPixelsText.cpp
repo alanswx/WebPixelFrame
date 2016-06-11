@@ -5,19 +5,19 @@
 void DisplayPixelsText::UpdateAnimation()
 {
   /*
-  Serial.print("UpdateAnimation Called ");
-  Serial.print(textStartX);
-  Serial.println(_text);
+    Serial.print("UpdateAnimation Called ");
+    Serial.print(textStartX);
+    Serial.println(_text);
   */
 
   //Serial.println("about to create red pixel");
   RgbColor red(128, 0, 0);
- //  strip->SetPixelColor(mosaic.Map(0, 0), red);
- //  strip->Show();
+  //  strip->SetPixelColor(mosaic.Map(0, 0), red);
+  //  strip->Show();
   // delay(1000);
   //   Serial.println("after red pixel");
 
-   
+
   drawString(textStartX, 0, _text, red);
   int now = millis();
   if (now -   setupStartMillis  > 100000 / 1000 )
@@ -27,7 +27,7 @@ void DisplayPixelsText::UpdateAnimation()
     int end = _text.length() * fontWidth * -1;
     if (textStartX <  end) textStartX = 8;
   }
-  
+
 }
 /** \brief Draw character with color and mode.
   Draw character c using color and draw mode at x,y.

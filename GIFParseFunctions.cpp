@@ -1,30 +1,30 @@
 /*
- * Animated GIFs Display Code for SmartMatrix and 32x32 RGB LED Panels
- *
- * This file contains code to parse animated GIF files
- *
- * Written by: Craig A. Lindley
- *
- * Copyright (c) 2014 Craig A. Lindley
- * Minor modifications by Louis Beaudoin (pixelmatix)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+   Animated GIFs Display Code for SmartMatrix and 32x32 RGB LED Panels
+
+   This file contains code to parse animated GIF files
+
+   Written by: Craig A. Lindley
+
+   Copyright (c) 2014 Craig A. Lindley
+   Minor modifications by Louis Beaudoin (pixelmatix)
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy of
+   this software and associated documentation files (the "Software"), to deal in
+   the Software without restriction, including without limitation the rights to
+   use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+   the Software, and to permit persons to whom the Software is furnished to do so,
+   subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+   FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+   COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
 
 #define DEBUG 0
 
@@ -132,658 +132,658 @@ callback startDrawingCallback;
 callback idleCallback;
 void setIdleCallback(callback f)
 {
-  idleCallback=f;
+  idleCallback = f;
 }
 void setStartDrawingCallback(callback f) {
-    startDrawingCallback = f;
+  startDrawingCallback = f;
 }
 
 void setUpdateScreenCallback(callback f) {
-    updateScreenCallback = f;
+  updateScreenCallback = f;
 }
 
 void setDrawPixelCallback(pixel_callback f) {
-    drawPixelCallback = f;
+  drawPixelCallback = f;
 }
 
 void setScreenClearCallback(callback f) {
-    screenClearCallback = f;
+  screenClearCallback = f;
 }
 
 // Backup the read stream by n bytes
 void backUpStream(int n) {
-    file.seek(file.position() - n,SeekSet);
+  file.seek(file.position() - n, SeekSet);
 }
 
 // Read a file byte
 int readByte() {
 
-    int b = file.read();
-    if (b == -1) {
-        Serial.println("Read error or EOF occurred");
-    }
-    return b;
+  int b = file.read();
+  if (b == -1) {
+    Serial.println("Read error or EOF occurred");
+  }
+  return b;
 }
 
 // Read a file word
 int readWord() {
 
-    int b0 = readByte();
-    int b1 = readByte();
-    return (b1 << 8) | b0;
+  int b0 = readByte();
+  int b1 = readByte();
+  return (b1 << 8) | b0;
 }
 
 // Read the specified number of bytes into the specified buffer
 int readIntoBuffer(void *buffer, int numberOfBytes) {
 
-    int result = file.read((uint8_t *)buffer, numberOfBytes);
-    if (result == -1) {
-        Serial.println("Read error or EOF occurred");
-    }
-    return result;
+  int result = file.read((uint8_t *)buffer, numberOfBytes);
+  if (result == -1) {
+    Serial.println("Read error or EOF occurred");
+  }
+  return result;
 }
 
 // Fill a portion of imageData buffer with a color index
 void fillImageDataRect(byte colorIndex, int x, int y, int width, int height) {
 
-    int yOffset;
+  int yOffset;
 
-    for (int yy = y; yy < height + y; yy++) {
-        yOffset = yy * WIDTH;
-        for (int xx = x; xx < width + x; xx++) {
-            imageData[yOffset + xx] = colorIndex;
-        }
+  for (int yy = y; yy < height + y; yy++) {
+    yOffset = yy * WIDTH;
+    for (int xx = x; xx < width + x; xx++) {
+      imageData[yOffset + xx] = colorIndex;
     }
+  }
 }
 
 // Fill entire imageData buffer with a color index
 void fillImageData(byte colorIndex) {
 
-    memset(imageData, colorIndex, sizeof(imageData));
+  memset(imageData, colorIndex, sizeof(imageData));
 }
 
 // Copy image data in rect from a src to a dst
 void copyImageDataRect(byte *dst, byte *src, int x, int y, int width, int height) {
 
-    int yOffset, offset;
+  int yOffset, offset;
 
-    for (int yy = y; yy < height + y; yy++) {
-        yOffset = yy * WIDTH;
-        for (int xx = x; xx < width + x; xx++) {
-            offset = yOffset + xx;
-            dst[offset] = src[offset];
-        }
+  for (int yy = y; yy < height + y; yy++) {
+    yOffset = yy * WIDTH;
+    for (int xx = x; xx < width + x; xx++) {
+      offset = yOffset + xx;
+      dst[offset] = src[offset];
     }
+  }
 }
 
 // Make sure the file is a Gif file
 boolean parseGifHeader() {
 
-    char buffer[10];
+  char buffer[10];
 
-    readIntoBuffer(buffer, GIFHDRSIZE);
-    if ((strncmp(buffer, GIFHDRTAGNORM,  GIFHDRSIZE) != 0) &&
-        (strncmp(buffer, GIFHDRTAGNORM1, GIFHDRSIZE) != 0))  {
-        return false;
-    }
-    else    {
-        return true;
-    }
+  readIntoBuffer(buffer, GIFHDRSIZE);
+  if ((strncmp(buffer, GIFHDRTAGNORM,  GIFHDRSIZE) != 0) &&
+      (strncmp(buffer, GIFHDRTAGNORM1, GIFHDRSIZE) != 0))  {
+    return false;
+  }
+  else    {
+    return true;
+  }
 }
 
 // Parse the logical screen descriptor
 void parseLogicalScreenDescriptor() {
 
-    lsdWidth = readWord();
-    lsdHeight = readWord();
-    lsdPackedField = readByte();
-    lsdBackgroundIndex = readByte();
-    lsdAspectRatio = readByte();
+  lsdWidth = readWord();
+  lsdHeight = readWord();
+  lsdPackedField = readByte();
+  lsdBackgroundIndex = readByte();
+  lsdAspectRatio = readByte();
 
 #if DEBUG == 1 && DEBUG_SCREEN_DESCRIPTOR == 1
-    Serial.print("lsdWidth: ");
-    Serial.println(lsdWidth);
-    Serial.print("lsdHeight: ");
-    Serial.println(lsdHeight);
-    Serial.print("lsdPackedField: ");
-    Serial.println(lsdPackedField, HEX);
-    Serial.print("lsdBackgroundIndex: ");
-    Serial.println(lsdBackgroundIndex);
-    Serial.print("lsdAspectRatio: ");
-    Serial.println(lsdAspectRatio);
+  Serial.print("lsdWidth: ");
+  Serial.println(lsdWidth);
+  Serial.print("lsdHeight: ");
+  Serial.println(lsdHeight);
+  Serial.print("lsdPackedField: ");
+  Serial.println(lsdPackedField, HEX);
+  Serial.print("lsdBackgroundIndex: ");
+  Serial.println(lsdBackgroundIndex);
+  Serial.print("lsdAspectRatio: ");
+  Serial.println(lsdAspectRatio);
 #endif
 }
 
 // Parse the global color table
 void parseGlobalColorTable() {
 
-    // Does a global color table exist?
-    if (lsdPackedField & COLORTBLFLAG) {
+  // Does a global color table exist?
+  if (lsdPackedField & COLORTBLFLAG) {
 
-        // A GCT was present determine how many colors it contains
-        colorCount = 1 << ((lsdPackedField & 7) + 1);
+    // A GCT was present determine how many colors it contains
+    colorCount = 1 << ((lsdPackedField & 7) + 1);
 
 #if DEBUG == 1 && DEBUG_GLOBAL_COLOR_TABLE == 1
-        Serial.print("Global color table with ");
-        Serial.print(colorCount);
-        Serial.println(" colors present");
+    Serial.print("Global color table with ");
+    Serial.print(colorCount);
+    Serial.println(" colors present");
 #endif
-        // Read color values into the palette array
-        int colorTableBytes = sizeof(rgb24) * colorCount;
-        readIntoBuffer(palette, colorTableBytes);
-    }
+    // Read color values into the palette array
+    int colorTableBytes = sizeof(rgb24) * colorCount;
+    readIntoBuffer(palette, colorTableBytes);
+  }
 }
 
 // Parse plain text extension and dispose of it
 void parsePlainTextExtension() {
 
 #if DEBUG == 1 && DEBUG_PROCESSING_PLAIN_TEXT_EXT == 1
-    Serial.println("\nProcessing Plain Text Extension");
+  Serial.println("\nProcessing Plain Text Extension");
 #endif
-    // Read plain text header length
-    byte len = readByte();
+  // Read plain text header length
+  byte len = readByte();
 
-    // Consume plain text header data
+  // Consume plain text header data
+  readIntoBuffer(tempBuffer, len);
+
+  // Consume the plain text data in blocks
+  len = readByte();
+  while (len != 0) {
     readIntoBuffer(tempBuffer, len);
-
-    // Consume the plain text data in blocks
     len = readByte();
-    while (len != 0) {
-        readIntoBuffer(tempBuffer, len);
-        len = readByte();
-    }
+  }
 }
 
 // Parse a graphic control extension
 void parseGraphicControlExtension() {
 
 #if DEBUG == 1 && DEBUG_PROCESSING_GRAPHIC_CONTROL_EXT == 1
-    Serial.println("\nProcessing Graphic Control Extension");
+  Serial.println("\nProcessing Graphic Control Extension");
 #endif
-    int len = readByte();	// Check length
-    if (len != 4) {
-        Serial.println("Bad graphic control extension");
-    }
+  int len = readByte();	// Check length
+  if (len != 4) {
+    Serial.println("Bad graphic control extension");
+  }
 
-    int packedBits = readByte();
-    frameDelay = readWord();
-    transparentColorIndex = readByte();
+  int packedBits = readByte();
+  frameDelay = readWord();
+  transparentColorIndex = readByte();
 
-    if ((packedBits & TRANSPARENTFLAG) == 0) {
-        // Indicate no transparent index
-        transparentColorIndex = NO_TRANSPARENT_INDEX;
-    }
-    disposalMethod = (packedBits >> 2) & 7;
-    if (disposalMethod > 3) {
-        disposalMethod = 0;
-        Serial.println("Invalid disposal value");
-    }
+  if ((packedBits & TRANSPARENTFLAG) == 0) {
+    // Indicate no transparent index
+    transparentColorIndex = NO_TRANSPARENT_INDEX;
+  }
+  disposalMethod = (packedBits >> 2) & 7;
+  if (disposalMethod > 3) {
+    disposalMethod = 0;
+    Serial.println("Invalid disposal value");
+  }
 
-    readByte();	// Toss block end
+  readByte();	// Toss block end
 
 #if DEBUG == 1 && DEBUG_PROCESSING_GRAPHIC_CONTROL_EXT == 1
-    Serial.print("PacketBits: ");
-    Serial.println(packedBits, HEX);
-    Serial.print("Frame delay: ");
-    Serial.println(frameDelay);
-    Serial.print("transparentColorIndex: ");
-    Serial.println(transparentColorIndex);
-    Serial.print("disposalMethod: ");
-    Serial.println(disposalMethod);
+  Serial.print("PacketBits: ");
+  Serial.println(packedBits, HEX);
+  Serial.print("Frame delay: ");
+  Serial.println(frameDelay);
+  Serial.print("transparentColorIndex: ");
+  Serial.println(transparentColorIndex);
+  Serial.print("disposalMethod: ");
+  Serial.println(disposalMethod);
 #endif
 }
 
 // Parse application extension
 void parseApplicationExtension() {
 
-    memset(tempBuffer, 0, sizeof(tempBuffer));
+  memset(tempBuffer, 0, sizeof(tempBuffer));
 
 #if DEBUG == 1 && DEBUG_PROCESSING_APP_EXT == 1
-    Serial.println("\nProcessing Application Extension");
+  Serial.println("\nProcessing Application Extension");
 #endif
 
-    // Read block length
-    byte len = readByte();
+  // Read block length
+  byte len = readByte();
 
-    // Read app data
+  // Read app data
+  readIntoBuffer(tempBuffer, len);
+
+#if DEBUG == 1 && DEBUG_PROCESSING_APP_EXT == 1
+  // Conditionally display the application extension string
+  if (strlen(tempBuffer) != 0) {
+    Serial.print("Application Extension: ");
+    Serial.println(tempBuffer);
+  }
+#endif
+
+  // Consume any additional app data
+  len = readByte();
+  while (len != 0) {
     readIntoBuffer(tempBuffer, len);
-
-#if DEBUG == 1 && DEBUG_PROCESSING_APP_EXT == 1
-    // Conditionally display the application extension string
-    if (strlen(tempBuffer) != 0) {
-        Serial.print("Application Extension: ");
-        Serial.println(tempBuffer);
-    }
-#endif
-
-    // Consume any additional app data
     len = readByte();
-    while (len != 0) {
-        readIntoBuffer(tempBuffer, len);
-        len = readByte();
-    }
+  }
 }
 
 // Parse comment extension
 void parseCommentExtension() {
 
 #if DEBUG == 1 && DEBUG_PROCESSING_COMMENT_EXT == 1
-    Serial.println("\nProcessing Comment Extension");
+  Serial.println("\nProcessing Comment Extension");
 #endif
 
-    // Read block length
-    byte len = readByte();
-    while (len != 0) {
-        // Clear buffer
-        memset(tempBuffer, 0, sizeof(tempBuffer));
+  // Read block length
+  byte len = readByte();
+  while (len != 0) {
+    // Clear buffer
+    memset(tempBuffer, 0, sizeof(tempBuffer));
 
-        // Read len bytes into buffer
-        readIntoBuffer(tempBuffer, len);
+    // Read len bytes into buffer
+    readIntoBuffer(tempBuffer, len);
 
 #if DEBUG == 1 && DEBUG_PROCESSING_COMMENT_EXT == 1
-        // Display the comment extension string
-        if (strlen(tempBuffer) != 0) {
-            Serial.print("Comment Extension: ");
-            Serial.println(tempBuffer);
-        }
-#endif
-        // Read the new block length
-        len = readByte();
+    // Display the comment extension string
+    if (strlen(tempBuffer) != 0) {
+      Serial.print("Comment Extension: ");
+      Serial.println(tempBuffer);
     }
+#endif
+    // Read the new block length
+    len = readByte();
+  }
 }
 
 // Parse file terminator
 int parseGIFFileTerminator() {
 
 #if DEBUG == 1 && DEBUG_PROCESSING_FILE_TERM == 1
-    Serial.println("\nProcessing file terminator");
+  Serial.println("\nProcessing file terminator");
 #endif
 
-    byte b = readByte();
-    if (b != 0x3B) {
+  byte b = readByte();
+  if (b != 0x3B) {
 
 #if DEBUG == 1 && DEBUG_PROCESSING_FILE_TERM == 1
-        Serial.print("Terminator byte: ");
-        Serial.println(b, HEX);
+    Serial.print("Terminator byte: ");
+    Serial.println(b, HEX);
 #endif
-        Serial.println("Bad GIF file format - Bad terminator");
-        return ERROR_BADGIFFORMAT;
-    }
-    else	{
-        return ERROR_NONE;
-    }
+    Serial.println("Bad GIF file format - Bad terminator");
+    return ERROR_BADGIFFORMAT;
+  }
+  else	{
+    return ERROR_NONE;
+  }
 }
 
 // Parse table based image data
 void parseTableBasedImage() {
 
 #if DEBUG == 1 && DEBUG_PROCESSING_TBI_DESC_START == 1
-    Serial.println("\nProcessing Table Based Image Descriptor");
+  Serial.println("\nProcessing Table Based Image Descriptor");
 #endif
 
-    // Parse image descriptor
-    tbiImageX = readWord();
-    tbiImageY = readWord();
-    tbiWidth = readWord();
-    tbiHeight = readWord();
-    tbiPackedBits = readByte();
+  // Parse image descriptor
+  tbiImageX = readWord();
+  tbiImageY = readWord();
+  tbiWidth = readWord();
+  tbiHeight = readWord();
+  tbiPackedBits = readByte();
 
 #if DEBUG == 1
-    Serial.print("tbiImageX: ");
-    Serial.println(tbiImageX);
-    Serial.print("tbiImageY: ");
-    Serial.println(tbiImageY);
-    Serial.print("tbiWidth: ");
-    Serial.println(tbiWidth);
-    Serial.print("tbiHeight: ");
-    Serial.println(tbiHeight);
-    Serial.print("PackedBits: ");
-    Serial.println(tbiPackedBits, HEX);
+  Serial.print("tbiImageX: ");
+  Serial.println(tbiImageX);
+  Serial.print("tbiImageY: ");
+  Serial.println(tbiImageY);
+  Serial.print("tbiWidth: ");
+  Serial.println(tbiWidth);
+  Serial.print("tbiHeight: ");
+  Serial.println(tbiHeight);
+  Serial.print("PackedBits: ");
+  Serial.println(tbiPackedBits, HEX);
 #endif
 
-    // Is this image interlaced ?
-    tbiInterlaced = ((tbiPackedBits & INTERLACEFLAG) != 0);
+  // Is this image interlaced ?
+  tbiInterlaced = ((tbiPackedBits & INTERLACEFLAG) != 0);
 
 #if DEBUG == 1 && DEBUG_PROCESSING_TBI_DESC_INTERLACED == 1
-    Serial.print("Image interlaced: ");
-    Serial.println((tbiInterlaced != 0) ? "Yes" : "No");
+  Serial.print("Image interlaced: ");
+  Serial.println((tbiInterlaced != 0) ? "Yes" : "No");
 #endif
 
-    // Does this image have a local color table ?
-    boolean localColorTable =  ((tbiPackedBits & COLORTBLFLAG) != 0);
+  // Does this image have a local color table ?
+  boolean localColorTable =  ((tbiPackedBits & COLORTBLFLAG) != 0);
 
-    if (localColorTable) {
-        int colorBits = ((tbiPackedBits & 7) + 1);
-        colorCount = 1 << colorBits;
+  if (localColorTable) {
+    int colorBits = ((tbiPackedBits & 7) + 1);
+    colorCount = 1 << colorBits;
 
 #if DEBUG == 1 && DEBUG_PROCESSING_TBI_DESC_LOCAL_COLOR_TABLE == 1
-        Serial.print("Local color table with ");
-        Serial.print(colorCount);
-        Serial.println(" colors present");
+    Serial.print("Local color table with ");
+    Serial.print(colorCount);
+    Serial.println(" colors present");
 #endif
-        // Read colors into palette
-        int colorTableBytes = sizeof(rgb24) * colorCount;
-        readIntoBuffer(palette, colorTableBytes);
+    // Read colors into palette
+    int colorTableBytes = sizeof(rgb24) * colorCount;
+    readIntoBuffer(palette, colorTableBytes);
+  }
+
+  // One time initialization of imageData before first frame
+  if (keyFrame) {
+    if (transparentColorIndex == NO_TRANSPARENT_INDEX) {
+      fillImageData(lsdBackgroundIndex);
     }
-
-    // One time initialization of imageData before first frame
-    if (keyFrame) {
-        if (transparentColorIndex == NO_TRANSPARENT_INDEX) {
-            fillImageData(lsdBackgroundIndex);
-        }
-        else    {
-            fillImageData(transparentColorIndex);
-        }
-        keyFrame = false;
-
-        rectX = 0;
-        rectY = 0;
-        rectWidth = WIDTH;
-        rectHeight = HEIGHT;
+    else    {
+      fillImageData(transparentColorIndex);
     }
-    // Don't clear matrix screen for these disposal methods
-    if ((prevDisposalMethod != DISPOSAL_NONE) && (prevDisposalMethod != DISPOSAL_LEAVE)) {
-        if(screenClearCallback)
-            (*screenClearCallback)();
+    keyFrame = false;
+
+    rectX = 0;
+    rectY = 0;
+    rectWidth = WIDTH;
+    rectHeight = HEIGHT;
+  }
+  // Don't clear matrix screen for these disposal methods
+  if ((prevDisposalMethod != DISPOSAL_NONE) && (prevDisposalMethod != DISPOSAL_LEAVE)) {
+    if (screenClearCallback)
+      (*screenClearCallback)();
+  }
+
+  // Process previous disposal method
+  if (prevDisposalMethod == DISPOSAL_BACKGROUND) {
+    // Fill portion of imageData with previous background color
+    fillImageDataRect(prevBackgroundIndex, rectX, rectY, rectWidth, rectHeight);
+  }
+  else if (prevDisposalMethod == DISPOSAL_RESTORE) {
+    copyImageDataRect(imageData, imageDataBU, rectX, rectY, rectWidth, rectHeight);
+  }
+
+  // Save disposal method for this frame for next time
+  prevDisposalMethod = disposalMethod;
+
+  if (disposalMethod != DISPOSAL_NONE) {
+    // Save dimensions of this frame
+    rectX = tbiImageX;
+    rectY = tbiImageY;
+    rectWidth = tbiWidth;
+    rectHeight = tbiHeight;
+
+    if (disposalMethod == DISPOSAL_BACKGROUND) {
+      if (transparentColorIndex != NO_TRANSPARENT_INDEX) {
+        prevBackgroundIndex = transparentColorIndex;
+      }
+      else    {
+        prevBackgroundIndex = lsdBackgroundIndex;
+      }
     }
-
-    // Process previous disposal method
-    if (prevDisposalMethod == DISPOSAL_BACKGROUND) {
-        // Fill portion of imageData with previous background color
-        fillImageDataRect(prevBackgroundIndex, rectX, rectY, rectWidth, rectHeight);
+    else if (disposalMethod == DISPOSAL_RESTORE) {
+      copyImageDataRect(imageDataBU, imageData, rectX, rectY, rectWidth, rectHeight);
     }
-    else if (prevDisposalMethod == DISPOSAL_RESTORE) {
-        copyImageDataRect(imageData, imageDataBU, rectX, rectY, rectWidth, rectHeight);
-    }
+  }
 
-    // Save disposal method for this frame for next time
-    prevDisposalMethod = disposalMethod;
-
-    if (disposalMethod != DISPOSAL_NONE) {
-        // Save dimensions of this frame
-        rectX = tbiImageX;
-        rectY = tbiImageY;
-        rectWidth = tbiWidth;
-        rectHeight = tbiHeight;
-
-        if (disposalMethod == DISPOSAL_BACKGROUND) {
-            if (transparentColorIndex != NO_TRANSPARENT_INDEX) {
-                prevBackgroundIndex = transparentColorIndex;
-            }
-            else    {
-                prevBackgroundIndex = lsdBackgroundIndex;
-            }
-        }
-        else if (disposalMethod == DISPOSAL_RESTORE) {
-            copyImageDataRect(imageDataBU, imageData, rectX, rectY, rectWidth, rectHeight);
-        }
-    }
-
-    // Read the min LZW code size
-    lzwCodeSize = readByte();
+  // Read the min LZW code size
+  lzwCodeSize = readByte();
 
 #if DEBUG == 1 && DEBUG_PROCESSING_TBI_DESC_LZWCODESIZE == 1
-    Serial.print("LzwCodeSize: ");
-    Serial.println(lzwCodeSize);
-    Serial.println("File Position Before: ");
-    Serial.println(file.position());
+  Serial.print("LzwCodeSize: ");
+  Serial.println(lzwCodeSize);
+  Serial.println("File Position Before: ");
+  Serial.println(file.position());
 #endif
 
-    unsigned long filePositionBefore = file.position();
+  unsigned long filePositionBefore = file.position();
 
-    // Gather the lzw image data
-    // NOTE: the dataBlockSize byte is left in the data as the lzw decoder needs it
-    int offset = 0;
-    int dataBlockSize = readByte();
-    while (dataBlockSize != 0) {
+  // Gather the lzw image data
+  // NOTE: the dataBlockSize byte is left in the data as the lzw decoder needs it
+  int offset = 0;
+  int dataBlockSize = readByte();
+  while (dataBlockSize != 0) {
 #if DEBUG == 1 && DEBUG_PROCESSING_TBI_DESC_DATABLOCKSIZE == 1
     Serial.print("dataBlockSize: ");
     Serial.println(dataBlockSize);
 #endif
-        backUpStream(1);
-        dataBlockSize++;
-        file.seek(file.position() + dataBlockSize,SeekSet);
+    backUpStream(1);
+    dataBlockSize++;
+    file.seek(file.position() + dataBlockSize, SeekSet);
 
-        offset += dataBlockSize;
-        dataBlockSize = readByte();
-    }
+    offset += dataBlockSize;
+    dataBlockSize = readByte();
+  }
 
 #if DEBUG == 1 && DEBUG_PROCESSING_TBI_DESC_LZWIMAGEDATA_SIZE == 1
-    Serial.print("total lzwImageData Size: ");
-    Serial.println(offset);
-    Serial.println("File Position Test: ");
-    Serial.println(file.position());
+  Serial.print("total lzwImageData Size: ");
+  Serial.println(offset);
+  Serial.println("File Position Test: ");
+  Serial.println(file.position());
 #endif
 
-    // this is the position where GIF decoding needs to pick up after decompressing frame
-    unsigned long filePositionAfter = file.position();
+  // this is the position where GIF decoding needs to pick up after decompressing frame
+  unsigned long filePositionAfter = file.position();
 
-    file.seek(filePositionBefore,SeekSet);
+  file.seek(filePositionBefore, SeekSet);
 
-    // Process the animation frame for display
+  // Process the animation frame for display
 
-    // Initialize the LZW decoder for this frame
-    lzw_decode_init(lzwCodeSize, readIntoBuffer);
-    lzw_setTempBuffer((byte*)tempBuffer);
+  // Initialize the LZW decoder for this frame
+  lzw_decode_init(lzwCodeSize, readIntoBuffer);
+  lzw_setTempBuffer((byte*)tempBuffer);
 
-    // Make sure there is at least some delay between frames
-    if (frameDelay < 1) {
-        frameDelay = 1;
-    }
+  // Make sure there is at least some delay between frames
+  if (frameDelay < 1) {
+    frameDelay = 1;
+  }
 
-    // Decompress LZW data and display the frame
-    decompressAndDisplayFrame(filePositionAfter);
+  // Decompress LZW data and display the frame
+  decompressAndDisplayFrame(filePositionAfter);
 
-    // Graphic control extension is for a single frame
-    transparentColorIndex = NO_TRANSPARENT_INDEX;
-    disposalMethod = DISPOSAL_NONE;
+  // Graphic control extension is for a single frame
+  transparentColorIndex = NO_TRANSPARENT_INDEX;
+  disposalMethod = DISPOSAL_NONE;
 }
 
 // Parse gif data
 int parseData() {
 
 #if DEBUG == 1 && DEBUG_PARSING_DATA == 1
-    Serial.println("\nParsing Data Block");
+  Serial.println("\nParsing Data Block");
 #endif
 
-    boolean done = false;
-    while (! done) {
+  boolean done = false;
+  while (! done) {
 
 #if DEBUG == 1 && DEBUG_WAIT_FOR_KEY_PRESS == 1
     Serial.println("\nPress Key For Next");
-    while(Serial.read() <= 0);
+    while (Serial.read() <= 0);
 #endif
 
-        // Determine what kind of data to process
-        byte b = readByte();
+    // Determine what kind of data to process
+    byte b = readByte();
 
-        if (b == 0x2c) {
-            // Parse table based image
+    if (b == 0x2c) {
+      // Parse table based image
 #if DEBUG == 1 && DEBUG_PARSING_DATA == 1
-    Serial.println("\nParsing Table Based");
+      Serial.println("\nParsing Table Based");
 #endif
-            parseTableBasedImage();
+      parseTableBasedImage();
 
-        }
-        else if (b == 0x21) {
-            // Parse extension
-            b = readByte();
-
-#if DEBUG == 1 && DEBUG_PARSING_DATA == 1
-    Serial.println("\nParsing Extension");
-#endif
-
-            // Determine which kind of extension to parse
-            switch (b) {
-            case 0x01:
-                // Plain test extension
-                parsePlainTextExtension();
-                break;
-            case 0xf9:
-                // Graphic control extension
-                parseGraphicControlExtension();
-                break;
-            case 0xfe:
-                // Comment extension
-                parseCommentExtension();
-                break;
-            case 0xff:
-                // Application extension
-                parseApplicationExtension();
-                break;
-            default:
-                Serial.print("Unknown control extension: ");
-                Serial.println(b, HEX);
-                return ERROR_UNKNOWNCONTROLEXT;
-            }
-        }
-        else	{
-#if DEBUG == 1 && DEBUG_PARSING_DATA == 1
-    Serial.println("\nParsing Done");
-#endif
-            done = true;
-
-            // Push unprocessed byte back into the stream for later processing
-            backUpStream(1);
-        }
     }
-    return ERROR_NONE;
+    else if (b == 0x21) {
+      // Parse extension
+      b = readByte();
+
+#if DEBUG == 1 && DEBUG_PARSING_DATA == 1
+      Serial.println("\nParsing Extension");
+#endif
+
+      // Determine which kind of extension to parse
+      switch (b) {
+        case 0x01:
+          // Plain test extension
+          parsePlainTextExtension();
+          break;
+        case 0xf9:
+          // Graphic control extension
+          parseGraphicControlExtension();
+          break;
+        case 0xfe:
+          // Comment extension
+          parseCommentExtension();
+          break;
+        case 0xff:
+          // Application extension
+          parseApplicationExtension();
+          break;
+        default:
+          Serial.print("Unknown control extension: ");
+          Serial.println(b, HEX);
+          return ERROR_UNKNOWNCONTROLEXT;
+      }
+    }
+    else	{
+#if DEBUG == 1 && DEBUG_PARSING_DATA == 1
+      Serial.println("\nParsing Done");
+#endif
+      done = true;
+
+      // Push unprocessed byte back into the stream for later processing
+      backUpStream(1);
+    }
+  }
+  return ERROR_NONE;
 }
 
 // Attempt to parse the gif file
 int processGIFFile(const char *pathname) {
 
-    // Initialize variables
-    keyFrame = true;
-    prevDisposalMethod = DISPOSAL_NONE;
-    transparentColorIndex = NO_TRANSPARENT_INDEX;
+  // Initialize variables
+  keyFrame = true;
+  prevDisposalMethod = DISPOSAL_NONE;
+  transparentColorIndex = NO_TRANSPARENT_INDEX;
 
-    Serial.print("Pathname: ");
-    Serial.println(pathname);
+  Serial.print("Pathname: ");
+  Serial.println(pathname);
 
-    if(file)
-        file.close();
-
-    // Attempt to open the file for reading
-    //file = SD.open(pathname);
-    file = SPIFFS.open(pathname, "r");
-    if (!file) {
-        Serial.println("Error opening GIF file");
-        return ERROR_FILEOPEN;
-    }
-    // Validate the header
-    if (! parseGifHeader()) {
-        Serial.println("Not a GIF file");
-        file.close();
-        return ERROR_FILENOTGIF;
-    }
-    // If we get here we have a gif file to process
-
-    // Parse the logical screen descriptor
-    parseLogicalScreenDescriptor();
-
-    // Parse the global color table
-    parseGlobalColorTable();
-
-    // Parse gif data
-    int result = parseData();
-    if (result != ERROR_NONE) {
-        Serial.println("Error: ");
-        Serial.println(result);
-        Serial.println(" occurred during parsing of data");
-        file.close();
-        return result;
-    }
-    // Parse the gif file terminator
-    result = parseGIFFileTerminator();
+  if (file)
     file.close();
 
-    Serial.println("Success");
+  // Attempt to open the file for reading
+  //file = SD.open(pathname);
+  file = SPIFFS.open(pathname, "r");
+  if (!file) {
+    Serial.println("Error opening GIF file");
+    return ERROR_FILEOPEN;
+  }
+  // Validate the header
+  if (! parseGifHeader()) {
+    Serial.println("Not a GIF file");
+    file.close();
+    return ERROR_FILENOTGIF;
+  }
+  // If we get here we have a gif file to process
+
+  // Parse the logical screen descriptor
+  parseLogicalScreenDescriptor();
+
+  // Parse the global color table
+  parseGlobalColorTable();
+
+  // Parse gif data
+  int result = parseData();
+  if (result != ERROR_NONE) {
+    Serial.println("Error: ");
+    Serial.println(result);
+    Serial.println(" occurred during parsing of data");
+    file.close();
     return result;
+  }
+  // Parse the gif file terminator
+  result = parseGIFFileTerminator();
+  file.close();
+
+  Serial.println("Success");
+  return result;
 }
 
 // Decompress LZW data and display animation frame
 void decompressAndDisplayFrame(unsigned long filePositionAfter) {
 
-    // Each pixel of image is 8 bits and is an index into the palette
+  // Each pixel of image is 8 bits and is an index into the palette
 
-        // How the image is decoded depends upon whether it is interlaced or not
-    // Decode the interlaced LZW data into the image buffer
-    if (tbiInterlaced) {
-        // Decode every 8th line starting at line 0
-        for (int line = tbiImageY + 0; line < tbiHeight + tbiImageY; line += 8) {
-            lzw_decode(imageData + (line * WIDTH) + tbiImageX, tbiWidth);
-        }
-        // Decode every 8th line starting at line 4
-        for (int line = tbiImageY + 4; line < tbiHeight + tbiImageY; line += 8) {
-            lzw_decode(imageData + (line * WIDTH) + tbiImageX, tbiWidth);
-        }
-        // Decode every 4th line starting at line 2
-        for (int line = tbiImageY + 2; line < tbiHeight + tbiImageY; line += 4) {
-            lzw_decode(imageData + (line * WIDTH) + tbiImageX, tbiWidth);
-        }
-        // Decode every 2nd line starting at line 1
-        for (int line = tbiImageY + 1; line < tbiHeight + tbiImageY; line += 2) {
-            lzw_decode(imageData + (line * WIDTH) + tbiImageX, tbiWidth);
-        }
+  // How the image is decoded depends upon whether it is interlaced or not
+  // Decode the interlaced LZW data into the image buffer
+  if (tbiInterlaced) {
+    // Decode every 8th line starting at line 0
+    for (int line = tbiImageY + 0; line < tbiHeight + tbiImageY; line += 8) {
+      lzw_decode(imageData + (line * WIDTH) + tbiImageX, tbiWidth);
     }
-    else    {
-        // Decode the non interlaced LZW data into the image data buffer
-        for (int line = tbiImageY; line < tbiHeight + tbiImageY; line++) {
-            lzw_decode(imageData  + (line * WIDTH) + tbiImageX, tbiWidth);
-        }
+    // Decode every 8th line starting at line 4
+    for (int line = tbiImageY + 4; line < tbiHeight + tbiImageY; line += 8) {
+      lzw_decode(imageData + (line * WIDTH) + tbiImageX, tbiWidth);
     }
+    // Decode every 4th line starting at line 2
+    for (int line = tbiImageY + 2; line < tbiHeight + tbiImageY; line += 4) {
+      lzw_decode(imageData + (line * WIDTH) + tbiImageX, tbiWidth);
+    }
+    // Decode every 2nd line starting at line 1
+    for (int line = tbiImageY + 1; line < tbiHeight + tbiImageY; line += 2) {
+      lzw_decode(imageData + (line * WIDTH) + tbiImageX, tbiWidth);
+    }
+  }
+  else    {
+    // Decode the non interlaced LZW data into the image data buffer
+    for (int line = tbiImageY; line < tbiHeight + tbiImageY; line++) {
+      lzw_decode(imageData  + (line * WIDTH) + tbiImageX, tbiWidth);
+    }
+  }
 
 #if DEBUG == 1 && DEBUG_DECOMPRESS_AND_DISPLAY == 1
-    Serial.println("File Position After: ");
-    Serial.println(file.position());
+  Serial.println("File Position After: ");
+  Serial.println(file.position());
 #endif
 
 #if DEBUG == 1 && DEBUG_WAIT_FOR_KEY_PRESS == 1
-    Serial.println("\nPress Key For Next");
-    while(Serial.read() <= 0);
+  Serial.println("\nPress Key For Next");
+  while (Serial.read() <= 0);
 #endif
 
-    // LZW doesn't parse through all the data, manually set position
-    file.seek(filePositionAfter,SeekSet);
+  // LZW doesn't parse through all the data, manually set position
+  file.seek(filePositionAfter, SeekSet);
 
-    // Optional callback can be used to get drawing routines ready
-    if(startDrawingCallback)
-        (*startDrawingCallback)();
+  // Optional callback can be used to get drawing routines ready
+  if (startDrawingCallback)
+    (*startDrawingCallback)();
 
-    // Image data is decompressed, now display portion of image affected by frame
-    int yOffset, pixel;
-    for (int y = tbiImageY; y < tbiHeight + tbiImageY; y++) {
-        yOffset = y * WIDTH;
-        for (int x = tbiImageX; x < tbiWidth + tbiImageX; x++) {
-            // Get the next pixel
-            pixel = imageData[yOffset + x];
+  // Image data is decompressed, now display portion of image affected by frame
+  int yOffset, pixel;
+  for (int y = tbiImageY; y < tbiHeight + tbiImageY; y++) {
+    yOffset = y * WIDTH;
+    for (int x = tbiImageX; x < tbiWidth + tbiImageX; x++) {
+      // Get the next pixel
+      pixel = imageData[yOffset + x];
 
-            // Check pixel transparency
-            if (pixel == transparentColorIndex) {
-                continue;
-            }
+      // Check pixel transparency
+      if (pixel == transparentColorIndex) {
+        continue;
+      }
 
-            // Pixel not transparent so get color from palette and draw the pixel
-            if(drawPixelCallback)
-                (*drawPixelCallback)(x, y, palette[pixel].red, palette[pixel].green, palette[pixel].blue);
-        }
+      // Pixel not transparent so get color from palette and draw the pixel
+      if (drawPixelCallback)
+        (*drawPixelCallback)(x, y, palette[pixel].red, palette[pixel].green, palette[pixel].blue);
     }
-    // Make animation frame visible
-    // swapBuffers() call can take up to 1/framerate seconds to return (it waits until a buffer copy is complete)
-    // note the time before calling
+  }
+  // Make animation frame visible
+  // swapBuffers() call can take up to 1/framerate seconds to return (it waits until a buffer copy is complete)
+  // note the time before calling
 
 #if DEBUG == 1 && DEBUG_DECOMPRESS_AND_DISPLAY == 1
-    Serial.println("AJS about to wait for next frame: ");
-    Serial.println(nextFrameTime_ms);
+  Serial.println("AJS about to wait for next frame: ");
+  Serial.println(nextFrameTime_ms);
 #endif
 
-    // wait until time to display next frame
-    while(nextFrameTime_ms > millis())
-     if (idleCallback) (*idleCallback)();
-     
-    // calculate time to display next frame
-    nextFrameTime_ms = millis() + (10 * frameDelay);
-    if(updateScreenCallback)
-        (*updateScreenCallback)();
+  // wait until time to display next frame
+  while (nextFrameTime_ms > millis())
+    if (idleCallback) (*idleCallback)();
+
+  // calculate time to display next frame
+  nextFrameTime_ms = millis() + (10 * frameDelay);
+  if (updateScreenCallback)
+    (*updateScreenCallback)();
 }

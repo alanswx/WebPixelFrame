@@ -1,8 +1,8 @@
-/*  
+/*
   upload the contents of the data folder with MkSPIFFS Tool ("ESP8266 Sketch Data Upload" in Tools menu in Arduino IDE)
   or you can upload the contents of a folder if you CD in that folder and run the following command:
   for file in `ls -A1`; do curl -F "file=@$PWD/$file" esp8266fs.local/edit; done
-  
+
   access the sample web page at http://esp8266fs.local
   edit the page by going to http://esp8266fs.local/edit
 */
@@ -24,7 +24,7 @@ const char* password = "***REMOVED***";
 const char* host = "esp8266fs";
 
 
-NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> *strip= new NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> (PixelCount, 2);
+NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> *strip = new NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> (PixelCount, 2);
 
 
 DisplayPixelsText *pixelText = new DisplayPixelsText();
@@ -37,7 +37,7 @@ DisplayPixels *curPixel = pixelText;
 uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
 {
 
-  return mosaic.Map(x,y);
+  return mosaic.Map(x, y);
 
 }
 
@@ -50,15 +50,15 @@ const uint16_t AnimCount = 1; // we only need one
 NeoPixelAnimator animations(AnimCount); // NeoPixel animation management object
 
 // our NeoBitmapFile will use the same color feature as NeoPixelBus and
-// we want it to use the SD File object 
-NeoBitmapFileAl<MyPixelColorFeature,File> image;
+// we want it to use the SD File object
+NeoBitmapFileAl<MyPixelColorFeature, File> image;
 RgbColor red(128, 0, 0);
 RgbColor green(0, 128, 0);
 RgbColor blue(0, 0, 128);
 RgbColor white(128);
 // if using NeoRgbwFeature above, use this white instead to use
 // the correct white element of the LED
-//RgbwColor white(128); 
+//RgbwColor white(128);
 RgbColor black(0);
 
 ESP8266WebServer server(80);
@@ -72,33 +72,33 @@ void updateScreenCallbackS()
 File fsUploadFile;
 
 //format bytes
-String formatBytes(size_t bytes){
-  if (bytes < 1024){
-    return String(bytes)+"B";
-  } else if(bytes < (1024 * 1024)){
-    return String(bytes/1024.0)+"KB";
-  } else if(bytes < (1024 * 1024 * 1024)){
-    return String(bytes/1024.0/1024.0)+"MB";
+String formatBytes(size_t bytes) {
+  if (bytes < 1024) {
+    return String(bytes) + "B";
+  } else if (bytes < (1024 * 1024)) {
+    return String(bytes / 1024.0) + "KB";
+  } else if (bytes < (1024 * 1024 * 1024)) {
+    return String(bytes / 1024.0 / 1024.0) + "MB";
   } else {
-    return String(bytes/1024.0/1024.0/1024.0)+"GB";
+    return String(bytes / 1024.0 / 1024.0 / 1024.0) + "GB";
   }
 }
 
-String getContentType(String filename){
-  if(server.hasArg("download")) return "application/octet-stream";
-  else if(filename.endsWith(".htm")) return "text/html";
-  else if(filename.endsWith(".html")) return "text/html";
-  else if(filename.endsWith(".css")) return "text/css";
-  else if(filename.endsWith(".js")) return "application/javascript";
-  else if(filename.endsWith(".png")) return "image/png";
-  else if(filename.endsWith(".gif")) return "image/gif";
-  else if(filename.endsWith(".jpg")) return "image/jpeg";
-  else if(filename.endsWith(".ico")) return "image/x-icon";
-  else if(filename.endsWith(".xml")) return "text/xml";
-  else if(filename.endsWith(".pdf")) return "application/x-pdf";
-  else if(filename.endsWith(".zip")) return "application/x-zip";
-  else if(filename.endsWith(".gz")) return "application/x-gzip";
-    else if(filename.endsWith(".bmp")) return "image/x-windows-bmp";
+String getContentType(String filename) {
+  if (server.hasArg("download")) return "application/octet-stream";
+  else if (filename.endsWith(".htm")) return "text/html";
+  else if (filename.endsWith(".html")) return "text/html";
+  else if (filename.endsWith(".css")) return "text/css";
+  else if (filename.endsWith(".js")) return "application/javascript";
+  else if (filename.endsWith(".png")) return "image/png";
+  else if (filename.endsWith(".gif")) return "image/gif";
+  else if (filename.endsWith(".jpg")) return "image/jpeg";
+  else if (filename.endsWith(".ico")) return "image/x-icon";
+  else if (filename.endsWith(".xml")) return "text/xml";
+  else if (filename.endsWith(".pdf")) return "application/x-pdf";
+  else if (filename.endsWith(".zip")) return "application/x-zip";
+  else if (filename.endsWith(".gz")) return "application/x-gzip";
+  else if (filename.endsWith(".bmp")) return "image/x-windows-bmp";
   return "text/plain";
 }
 
@@ -107,50 +107,50 @@ String getContentType(String filename){
 
 bool handleShowGIF(String path)
 {
-     DBG_OUTPUT_PORT.println("handleShowGIF: " + path);
+  DBG_OUTPUT_PORT.println("handleShowGIF: " + path);
 
 
   pixelGIF->SetGIF(path);
-  curPixel=pixelGIF;
-  
-    server.send(200, "text/plain", "");
+  curPixel = pixelGIF;
+
+  server.send(200, "text/plain", "");
   return true;
 }
 
-bool handleShow(String path){
-    DBG_OUTPUT_PORT.println("handleShow: " + path);
-     ESP.wdtFeed();
+bool handleShow(String path) {
+  DBG_OUTPUT_PORT.println("handleShow: " + path);
+  ESP.wdtFeed();
   File bitmapFile = SPIFFS.open(path, "r");
-    if (!bitmapFile)
-    {
-        Serial.println("File open fail, or not present");
-        // don't do anything more:
-        return false;
-    }
-   ESP.wdtFeed();
-    ESP.wdtFeed();
-    // initialize the image with the file
-    if (!image.Begin(bitmapFile))
-    {
-        Serial.println("File format fail, not a supported bitmap");
-        // don't do anything more:
-        return false;
-    }
+  if (!bitmapFile)
+  {
+    Serial.println("File open fail, or not present");
+    // don't do anything more:
+    return false;
+  }
+  ESP.wdtFeed();
+  ESP.wdtFeed();
+  // initialize the image with the file
+  if (!image.Begin(bitmapFile))
+  {
+    Serial.println("File format fail, not a supported bitmap");
+    // don't do anything more:
+    return false;
+  }
   server.send(200, "text/plain", "");
   return true;
 
 }
-bool handleFileRead(String path){
+bool handleFileRead(String path) {
   DBG_OUTPUT_PORT.println("handleFileRead: " + path);
-  if(path.endsWith("/")) path += "index.htm";
+  if (path.endsWith("/")) path += "index.htm";
   String contentType = getContentType(path);
-  if (contentType=="image/x-windows-bmp")
+  if (contentType == "image/x-windows-bmp")
     return handleShow(path);
-  else if (contentType=="image/gif")
+  else if (contentType == "image/gif")
     return handleShowGIF(path);
   String pathWithGz = path + ".gz";
-  if(SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)){
-    if(SPIFFS.exists(pathWithGz))
+  if (SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)) {
+    if (SPIFFS.exists(pathWithGz))
       path += ".gz";
     File file = SPIFFS.open(path, "r");
     size_t sent = server.streamFile(file, contentType);
@@ -160,50 +160,50 @@ bool handleFileRead(String path){
   return false;
 }
 
-void handleFileUpload(){
-  if(server.uri() != "/edit") return;
+void handleFileUpload() {
+  if (server.uri() != "/edit") return;
   HTTPUpload& upload = server.upload();
-  if(upload.status == UPLOAD_FILE_START){
+  if (upload.status == UPLOAD_FILE_START) {
     String filename = upload.filename;
-    if(!filename.startsWith("/")) filename = "/"+filename;
+    if (!filename.startsWith("/")) filename = "/" + filename;
     DBG_OUTPUT_PORT.print("handleFileUpload Name: "); DBG_OUTPUT_PORT.println(filename);
     fsUploadFile = SPIFFS.open(filename, "w");
     filename = String();
-  } else if(upload.status == UPLOAD_FILE_WRITE){
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
     //DBG_OUTPUT_PORT.print("handleFileUpload Data: "); DBG_OUTPUT_PORT.println(upload.currentSize);
-    if(fsUploadFile)
+    if (fsUploadFile)
       fsUploadFile.write(upload.buf, upload.currentSize);
-  } else if(upload.status == UPLOAD_FILE_END){
-    if(fsUploadFile)
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (fsUploadFile)
       fsUploadFile.close();
     DBG_OUTPUT_PORT.print("handleFileUpload Size: "); DBG_OUTPUT_PORT.println(upload.totalSize);
   }
 }
 
-void handleFileDelete(){
-  if(server.args() == 0) return server.send(500, "text/plain", "BAD ARGS");
+void handleFileDelete() {
+  if (server.args() == 0) return server.send(500, "text/plain", "BAD ARGS");
   String path = server.arg(0);
   DBG_OUTPUT_PORT.println("handleFileDelete: " + path);
-  if(path == "/")
+  if (path == "/")
     return server.send(500, "text/plain", "BAD PATH");
-  if(!SPIFFS.exists(path))
+  if (!SPIFFS.exists(path))
     return server.send(404, "text/plain", "FileNotFound");
   SPIFFS.remove(path);
   server.send(200, "text/plain", "");
   path = String();
 }
 
-void handleFileCreate(){
-  if(server.args() == 0)
+void handleFileCreate() {
+  if (server.args() == 0)
     return server.send(500, "text/plain", "BAD ARGS");
   String path = server.arg(0);
   DBG_OUTPUT_PORT.println("handleFileCreate: " + path);
-  if(path == "/")
+  if (path == "/")
     return server.send(500, "text/plain", "BAD PATH");
-  if(SPIFFS.exists(path))
+  if (SPIFFS.exists(path))
     return server.send(500, "text/plain", "FILE EXISTS");
   File file = SPIFFS.open(path, "w");
-  if(file)
+  if (file)
     file.close();
   else
     return server.send(500, "text/plain", "CREATE FAILED");
@@ -215,16 +215,16 @@ void handleFileCreate(){
 void showImageList()
 {
   Dir dir = SPIFFS.openDir("/");
- 
+
 
   String output = "";
-  while(dir.next()){
+  while (dir.next()) {
     File entry = dir.openFile("r");
 
     String contentType = getContentType(entry.name());
-    if (contentType=="image/x-windows-bmp")
+    if (contentType == "image/x-windows-bmp")
     {
-      output+= String("<a href=\"")+String(entry.name())+"\">"+String(entry.name())+String("</a><br/>");
+      output += String("<a href=\"") + String(entry.name()) + "\">" + String(entry.name()) + String("</a><br/>");
     }
     entry.close();
   }
@@ -233,73 +233,79 @@ void showImageList()
 
 void setScrollText()
 {
-  if(!server.hasArg("text")) {server.send(500, "text/plain", "BAD ARGS"); return;}
- 
+  if (!server.hasArg("text")) {
+    server.send(500, "text/plain", "BAD ARGS");
+    return;
+  }
+
 
   pixelText->SetText(server.arg("text"));
-  
+
   String output = "Setting scroll to: ";
-  output+=server.arg("text");
-  
+  output += server.arg("text");
+
   curPixel = pixelText;
-  
+
   server.send(200, "text/html", output);
 
 }
 
 void handleFileList() {
-  if(!server.hasArg("dir")) {server.send(500, "text/plain", "BAD ARGS"); return;}
-  
+  if (!server.hasArg("dir")) {
+    server.send(500, "text/plain", "BAD ARGS");
+    return;
+  }
+
   String path = server.arg("dir");
   DBG_OUTPUT_PORT.println("handleFileList: " + path);
   Dir dir = SPIFFS.openDir(path);
   path = String();
 
   String output = "[";
-  while(dir.next()){
+  while (dir.next()) {
     File entry = dir.openFile("r");
     if (output != "[") output += ',';
     bool isDir = false;
     output += "{\"type\":\"";
-    output += (isDir)?"dir":"file";
+    output += (isDir) ? "dir" : "file";
     output += "\",\"name\":\"";
     output += String(entry.name()).substring(1);
     output += "\"}";
     entry.close();
   }
-  
+
   output += "]";
   server.send(200, "text/json", output);
 }
 
-void setup(void){
- 
+void setup(void) {
+
   DBG_OUTPUT_PORT.begin(115200);
   DBG_OUTPUT_PORT.print("\n");
   DBG_OUTPUT_PORT.setDebugOutput(true);
- 
 
- strip->Begin();
-    strip->Show();
-  
+
+  strip->Begin();
+  strip->Show();
+
   SPIFFS.begin();
   {
     Dir dir = SPIFFS.openDir("/");
-    while (dir.next()) {    
+    while (dir.next()) {
       String fileName = dir.fileName();
       size_t fileSize = dir.fileSize();
       DBG_OUTPUT_PORT.printf("FS File: %s, size: %s\n", fileName.c_str(), formatBytes(fileSize).c_str());
     }
     DBG_OUTPUT_PORT.printf("\n");
   }
-  
+
 
   //WIFI INIT
   DBG_OUTPUT_PORT.printf("Connecting to %s\n", ssid);
   if (String(WiFi.SSID()) != String(ssid)) {
     WiFi.begin(ssid, password);
   }
-  
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     DBG_OUTPUT_PORT.print(".");
@@ -312,16 +318,16 @@ void setup(void){
   DBG_OUTPUT_PORT.print("Open http://");
   DBG_OUTPUT_PORT.print(host);
   DBG_OUTPUT_PORT.println(".local/edit to see the file browser");
-  
-  
+
+
   //SERVER INIT
-  server.on("/scroll",HTTP_GET,setScrollText);
-  server.on("/image",HTTP_GET,showImageList);
+  server.on("/scroll", HTTP_GET, setScrollText);
+  server.on("/image", HTTP_GET, showImageList);
   //list directory
   server.on("/list", HTTP_GET, handleFileList);
   //load editor
-  server.on("/edit", HTTP_GET, [](){
-    if(!handleFileRead("/edit.htm")) server.send(404, "text/plain", "FileNotFound");
+  server.on("/edit", HTTP_GET, []() {
+    if (!handleFileRead("/edit.htm")) server.send(404, "text/plain", "FileNotFound");
   });
   //create file
   server.on("/edit", HTTP_PUT, handleFileCreate);
@@ -329,22 +335,24 @@ void setup(void){
   server.on("/edit", HTTP_DELETE, handleFileDelete);
   //first callback is called after the request has ended with all parsed arguments
   //second callback handles file uploads at that location
-  server.on("/edit", HTTP_POST, [](){ server.send(200, "text/plain", ""); }, handleFileUpload);
+  server.on("/edit", HTTP_POST, []() {
+    server.send(200, "text/plain", "");
+  }, handleFileUpload);
 
 
   //called when the url is not defined here
   //use it to load content from SPIFFS
-  server.onNotFound([](){
-    if(!handleFileRead(server.uri()))
+  server.onNotFound([]() {
+    if (!handleFileRead(server.uri()))
       server.send(404, "text/plain", "FileNotFound");
   });
 
   //get heap status, analog input value and all GPIO statuses in one json call
-  server.on("/all", HTTP_GET, [](){
+  server.on("/all", HTTP_GET, []() {
     String json = "{";
-    json += "\"heap\":"+String(ESP.getFreeHeap());
-    json += ", \"analog\":"+String(analogRead(A0));
-    json += ", \"gpio\":"+String((uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16)));
+    json += "\"heap\":" + String(ESP.getFreeHeap());
+    json += ", \"analog\":" + String(analogRead(A0));
+    json += ", \"gpio\":" + String((uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16)));
     json += "}";
     server.send(200, "text/json", json);
     json = String();
@@ -354,17 +362,17 @@ void setup(void){
 
 }
 
- 
-void loop(void){
+
+void loop(void) {
   server.handleClient();
   if (curPixel) curPixel->UpdateAnimation();
-   //image.Blt(*strip,0,0,0,0,8,8,ourLayoutMapCallback);
+  //image.Blt(*strip,0,0,0,0,8,8,ourLayoutMapCallback);
 
 
- //strip.SetPixelColor(mosaic.Map(0, 0), red);
-   //strip.Show();
-    strip->Show();
-    
+  //strip.SetPixelColor(mosaic.Map(0, 0), red);
+  //strip.Show();
+  strip->Show();
+
 }
 
 
