@@ -14,6 +14,7 @@
 #include <NeoPixelBus.h>
 #include <NeoPixelAnimator.h>
 #include "NewBitmap.h"
+#include "DisplayPixelsLive.h"
 #include "DisplayPixelsText.h"
 #include "DisplayPixelsAnimatedGIF.h"
 
@@ -29,7 +30,7 @@ NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> *strip = new NeoPixelBus<MyPi
 
 DisplayPixelsText *pixelText = new DisplayPixelsText();
 DisplayPixelsAnimatedGIF *pixelGIF = new DisplayPixelsAnimatedGIF();
-
+DisplayPixelsLive * pixelLive = new DisplayPixelsLive();
 DisplayPixels *curPixel = pixelText;
 
 
@@ -103,7 +104,31 @@ String getContentType(String filename) {
 }
 
 
-
+bool handleClearScreen()
+{
+  pixelLive->Clear();
+  curPixel = pixelLive;
+  
+  server.send(200, "text/plain", "");
+  return true;
+}
+bool handleSetPixel()
+{
+   if (!server.hasArg("x") || !server.hasArg("y") || !server.hasArg("r") || !server.hasArg("g") ||!server.hasArg("b")) {
+    server.send(500, "text/plain", "BAD ARGS");
+    return false;
+  }
+  int x = server.arg("x").toInt();
+  int y = server.arg("y").toInt();
+  int r = server.arg("r").toInt();
+  int g = server.arg("g").toInt();
+  int b = server.arg("b").toInt();
+  pixelLive->SetPixel(x,y,r,g,b);
+  curPixel = pixelLive;
+  
+  server.send(200, "text/plain", "");
+  return true;
+}
 
 bool handleShowGIF(String path)
 {
@@ -140,8 +165,63 @@ bool handleShow(String path) {
   return true;
 
 }
+bool handleFileReadPO(String path) {
+String short_name = "";
+int found=0;
+
+// read the file from disk that is our index:
+File file = SPIFFS.open("/pindex.txt", "r");
+String l_line = "";
+//open the file here
+while (file.available() != 0) {  
+    //A inconsistent line length may lead to heap memory fragmentation        
+    l_line = file.readStringUntil('\n');        
+    if (l_line == "") //no blank lines are anticipated        
+      break;      
+    //  
+    int pipePos = l_line.indexOf("|");
+    String long_name = l_line.substring(pipePos+1);
+    long_name="/"+long_name;
+    short_name = l_line.substring(0, pipePos);
+    
+   //parse l_line here
+   //DBG_OUTPUT_PORT.println("got line: "+l_line);
+   //DBG_OUTPUT_PORT.println("["+long_name+"]["+short_name+"]");
+
+   if (path == long_name)
+   {
+      DBG_OUTPUT_PORT.println("***** FOUND IT ***");
+      DBG_OUTPUT_PORT.println("["+long_name+"]["+short_name+"]");
+      found = 1;
+      short_name="/po/"+short_name;
+      break;
+   }
+}
+file.close();
+
+if (found==0) return false;
+
+
+  String contentType = getContentType(path);
+  String pathWithGz = short_name + ".gz";
+  if (SPIFFS.exists(pathWithGz) || SPIFFS.exists(short_name)) {
+    if (SPIFFS.exists(pathWithGz))
+      short_name += ".gz";
+    File file = SPIFFS.open(short_name, "r");
+    size_t sent = server.streamFile(file, contentType);
+    file.close();
+    return true;
+  }
+  return false;
+   
+
+
+}
 bool handleFileRead(String path) {
   DBG_OUTPUT_PORT.println("handleFileRead: " + path);
+
+  if (path.startsWith("/p/")) return handleFileReadPO(path);
+  
   if (path.endsWith("/")) path += "index.htm";
   String contentType = getContentType(path);
   if (contentType == "image/x-windows-bmp")
@@ -321,6 +401,8 @@ void setup(void) {
 
 
   //SERVER INIT
+  server.on("/clearscreen",HTTP_GET,handleClearScreen);
+  server.on("/setpixel", HTTP_GET, handleSetPixel);
   server.on("/scroll", HTTP_GET, setScrollText);
   server.on("/image", HTTP_GET, showImageList);
   //list directory
