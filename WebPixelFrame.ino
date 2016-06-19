@@ -21,7 +21,7 @@
 #define DBG_OUTPUT_PORT Serial
 
 const char* ssid = "Alan";
-const char* password = "***REMOVED***";
+const char* password = "removed";
 const char* host = "esp8266fs";
 
 
