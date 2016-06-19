@@ -1,10 +1,12 @@
 cd ../
+rm -rf p
+cp -r ../piskel-master/dest/prod p
 rm -rf data/po
-rm data/p/js/lib/piskel-packageda.js
+rm -f p/js/piskel-packageda.js
 php tools/convertdir.php
 cd data
 gzip po/71	
 gzip po/73
 gzip po/75
 gzip po/8
-for file in `ls -A1 po`; do curl -F "file=@$PWD/po/$file;filename=/po/$file" 10.0.2.19/edit; done
+for file in `ls -A1 po`; do curl -F "file=@$PWD/po/$file;filename=/po/$file" 10.0.2.29/edit; done
