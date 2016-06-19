@@ -6,6 +6,10 @@
   access the sample web page at http://esp8266fs.local
   edit the page by going to http://esp8266fs.local/edit
 */
+
+// To build a clock, look at:
+// http://www.esp8266.com/viewtopic.php?f=32&t=2881
+
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
@@ -18,10 +22,11 @@
 #include "DisplayPixelsText.h"
 #include "DisplayPixelsAnimatedGIF.h"
 
+#include "CaptivePortalAdvanced.h"
+
 #define DBG_OUTPUT_PORT Serial
 
-const char* ssid = "Alan";
-const char* password = "removed";
+
 const char* host = "esp8266fs";
 
 
@@ -112,6 +117,81 @@ bool handleClearScreen()
   server.send(200, "text/plain", "");
   return true;
 }
+
+unsigned long hex2int(char *a, unsigned int len)
+{
+   int i;
+   unsigned long val = 0;
+
+   for(i=0;i<len;i++)
+      if(a[i] <= 57)
+       val += (a[i]-48)*(1<<(4*(len-1-i)));
+      else
+       val += (a[i]-55)*(1<<(4*(len-1-i)));
+   return val;
+}
+bool handleSetPixels()
+{
+ /*
+  int numArgs = server.args();
+  for (int i=0;i<numArgs;i++)
+  {
+     DBG_OUTPUT_PORT.println("arg: " + server.argName(i) + " val:" +server.arg(i));
+  }
+*/
+  String pixels = server.arg("pixels");
+  pixels.toUpperCase();
+  int pos=0;
+  // let's pull the hex values out
+  for (int y=0;y<8;y++)
+  {
+    for (int x=0;x<8;x++)
+    {
+       char hr[4];
+       hr[0]=pixels[pos++];
+       hr[1]=pixels[pos++];
+       hr[2]=0;
+       int r = hex2int(hr,2);
+       char hg[4];       
+       hg[0]=pixels[pos++];
+       hg[1]=pixels[pos++];
+       hg[2]=0;
+       int g = hex2int(hg,2);
+       char hb[4];
+       hb[0]=pixels[pos++];
+       hb[1]=pixels[pos++];
+       hb[2]=0;
+       int b = hex2int(hb,2);
+       /*
+       DBG_OUTPUT_PORT.print("setpixels: ");
+       DBG_OUTPUT_PORT.print(x);
+       DBG_OUTPUT_PORT.print(" ");
+       DBG_OUTPUT_PORT.print(y);
+       DBG_OUTPUT_PORT.print(" (");
+       DBG_OUTPUT_PORT.print(hr);
+       DBG_OUTPUT_PORT.print(")");
+       DBG_OUTPUT_PORT.print(r);
+       DBG_OUTPUT_PORT.print(" (");
+       DBG_OUTPUT_PORT.print(hg);
+       DBG_OUTPUT_PORT.print(")");
+       DBG_OUTPUT_PORT.print(g);
+       DBG_OUTPUT_PORT.print(" (");
+       DBG_OUTPUT_PORT.print(hb);
+       DBG_OUTPUT_PORT.print(")");
+       DBG_OUTPUT_PORT.println(b);
+       */
+       
+       pixelLive->SetPixel(x,y,r,g,b);
+    }
+  }
+  
+
+  curPixel = pixelLive;
+  
+  server.send(200, "text/plain", "");
+  return true;  
+}
+
 bool handleSetPixel()
 {
    if (!server.hasArg("x") || !server.hasArg("y") || !server.hasArg("r") || !server.hasArg("g") ||!server.hasArg("b")) {
@@ -259,6 +339,38 @@ void handleFileUpload() {
     DBG_OUTPUT_PORT.print("handleFileUpload Size: "); DBG_OUTPUT_PORT.println(upload.totalSize);
   }
 }
+void handlePiskelFileUpload() {
+  DBG_OUTPUT_PORT.println("Piskel Upload");
+HTTPUpload& upload = server.upload();
+DBG_OUTPUT_PORT.println(upload.status);
+DBG_OUTPUT_PORT.println(upload.filename);
+DBG_OUTPUT_PORT.println(upload.type);
+DBG_OUTPUT_PORT.println(upload.totalSize);
+DBG_OUTPUT_PORT.println(upload.currentSize);
+
+ 
+  int numArgs = server.args();
+  for (int i=0;i<numArgs;i++)
+  {
+     DBG_OUTPUT_PORT.println("arg: " + server.argName(i) + " val:" +server.arg(i));
+  }
+  
+ server.send(200, "text/plain", "");
+}
+
+void handlePiskelSave() {
+  DBG_OUTPUT_PORT.println("handlePiskelSave");
+
+  int numArgs = server.args();
+  for (int i=0;i<numArgs;i++)
+  {
+     DBG_OUTPUT_PORT.println("arg: " + server.argName(i) + " val:" +server.arg(i));
+  }
+  
+ server.send(200, "text/plain", "");
+}
+
+
 
 void handleFileDelete() {
   if (server.args() == 0) return server.send(500, "text/plain", "BAD ARGS");
@@ -381,26 +493,32 @@ void setup(void) {
 
 
   //WIFI INIT
-  DBG_OUTPUT_PORT.printf("Connecting to %s\n", ssid);
-  if (String(WiFi.SSID()) != String(ssid)) {
-    WiFi.begin(ssid, password);
-  }
+  //DBG_OUTPUT_PORT.printf("Connecting to %s\n", ssid);
+  //if (String(WiFi.SSID()) != String(ssid)) {
+  //  WiFi.begin(ssid, password);
+  //}
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    DBG_OUTPUT_PORT.print(".");
-  }
-  DBG_OUTPUT_PORT.println("");
-  DBG_OUTPUT_PORT.print("Connected! IP address: ");
-  DBG_OUTPUT_PORT.println(WiFi.localIP());
+  //while (WiFi.status() != WL_CONNECTED) {
+  //  delay(500);
+  //  DBG_OUTPUT_PORT.print(".");
+ // }
+  //DBG_OUTPUT_PORT.println("");
+  //DBG_OUTPUT_PORT.print("Connected! IP address: ");
+  //DBG_OUTPUT_PORT.println(WiFi.localIP());
 
-  MDNS.begin(host);
-  DBG_OUTPUT_PORT.print("Open http://");
-  DBG_OUTPUT_PORT.print(host);
-  DBG_OUTPUT_PORT.println(".local/edit to see the file browser");
+  //MDNS.begin(host);
+  //DBG_OUTPUT_PORT.print("Open http://");
+  //DBG_OUTPUT_PORT.print(host);
+  //DBG_OUTPUT_PORT.println(".local/edit to see the file browser");
+
+
 
 
   //SERVER INIT
+  setupCaptive(&server);
+
+  server.on("/setpixels",HTTP_POST,handleSetPixels);
+
   server.on("/clearscreen",HTTP_GET,handleClearScreen);
   server.on("/setpixel", HTTP_GET, handleSetPixel);
   server.on("/scroll", HTTP_GET, setScrollText);
@@ -421,10 +539,17 @@ void setup(void) {
     server.send(200, "text/plain", "");
   }, handleFileUpload);
 
-
+  server.on("/piskelupload",HTTP_POST,  handlePiskelFileUpload, handlePiskelFileUpload);
+  server.on("/piskelsave",HTTP_POST,  handlePiskelSave);
+  
+//handleShowGIF("/pac1/out8.gif");
+  
   //called when the url is not defined here
   //use it to load content from SPIFFS
   server.onNotFound([]() {
+      if (captivePortal()) { // If caprive portal redirect instead of displaying the page.
+    return;
+  }
     if (!handleFileRead(server.uri()))
       server.send(404, "text/plain", "FileNotFound");
   });
@@ -446,6 +571,7 @@ void setup(void) {
 
 
 void loop(void) {
+  loopCaptive(); 
   server.handleClient();
   if (curPixel) curPixel->UpdateAnimation();
   //image.Blt(*strip,0,0,0,0,8,8,ourLayoutMapCallback);
