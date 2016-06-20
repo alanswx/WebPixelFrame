@@ -62,6 +62,7 @@ void setupCaptive(ESP8266WebServer *server) {
   Serial.println(WiFi.softAPIP());
 
   /* Setup the DNS server redirecting all the domains to the apIP */  
+  dnsServer.setTTL(300);
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer.start(DNS_PORT, "*", apIP);
 

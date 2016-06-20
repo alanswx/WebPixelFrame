@@ -17,6 +17,7 @@
 #include <FS.h>
 #include <NeoPixelBus.h>
 #include <NeoPixelAnimator.h>
+//#include <ArduinoJson.h> 
 #include "NewBitmap.h"
 #include "DisplayPixelsLive.h"
 #include "DisplayPixelsText.h"
@@ -27,7 +28,7 @@
 #define DBG_OUTPUT_PORT Serial
 
 
-const char* host = "esp8266fs";
+const char* host = "WebPixelFrame";
 
 
 NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> *strip = new NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> (PixelCount, 2);
@@ -364,10 +365,18 @@ int findNextFileNumber()
   int largestnumber=0;
   Dir dir = SPIFFS.openDir("/piskeldata/");
   while (dir.next()) {
-    int filenumber = dir.fileName().toInt();
+    int pos = dir.fileName().lastIndexOf(".json");
+    int slashpos = dir.fileName().lastIndexOf("/");
+     DBG_OUTPUT_PORT.println("filename:"+dir.fileName());
+     DBG_OUTPUT_PORT.println(pos);
+    String filenumberS = dir.fileName().substring(slashpos+1,pos);
+   DBG_OUTPUT_PORT.println(filenumberS);
+     int filenumber = filenumberS.toInt();
+     filenumber++;
     if (filenumber>largestnumber) largestnumber=filenumber;
   }
-
+  DBG_OUTPUT_PORT.print("largestnumber: ");
+ DBG_OUTPUT_PORT.println(largestnumber);
   return largestnumber;
 }
 
@@ -380,7 +389,8 @@ void handlePiskelSave() {
      DBG_OUTPUT_PORT.println("arg: " + server.argName(i) + " val:" +server.arg(i));
   }
   int filenumber = findNextFileNumber();
-  String filename = "/piskeldata/"+ String(filenumber);
+  DBG_OUTPUT_PORT.println("filenumber:"+filenumber);
+  String filename = "/piskeldata/"+ String(filenumber)+".json";
 
   DBG_OUTPUT_PORT.println("filename ["+filename+"]");
   File file = SPIFFS.open(filename,"w");
