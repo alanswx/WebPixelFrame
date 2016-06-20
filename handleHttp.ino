@@ -17,8 +17,17 @@ void handleRoot() {
   } else {
     server.sendContent(String("<p>You are connected through the wifi network: ") + ssid + "</p>");
   }
+
   server.sendContent(
-    "<p>You may want to <a href='/wifi'>config the wifi connection</a>.</p>"
+    "<p><a href='/p/index.html'>Launch Pixel Editor</a>.</p>"
+  );
+  server.sendContent(
+    "<p><a href='/edit'>File Editor / Uploader</a>.</p>"
+  );
+
+  
+  server.sendContent(
+    "<p><a href='/wifi'>config the wifi connection</a>.</p>"
     "</body></html>"
   );
   server.client().stop(); // Stop is needed because we sent no content length
@@ -35,7 +44,29 @@ boolean captivePortal() {
   }
   return false;
 }
+ void handleWifiJSON() {
+  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  server.sendHeader("Pragma", "no-cache");
+  server.sendHeader("Expires", "-1");
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, "text/json", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
+  int n = WiFi.scanNetworks();
+  Serial.println("scan done");
+  if (n > 0) {
+    server.sendContent(String()+"[\r\n");
+    for (int i = 0; i < n; i++) {
+        if (i>0) server.sendContent(String()+",\r\n");
+        server.sendContent(String() + "{ \"ssid\": \"" + WiFi.SSID(i) + "\", \"encryption\": \""+String((WiFi.encryptionType(i) == ENC_TYPE_NONE)?"":"*") + "\", \"strength\": " + WiFi.RSSI(i) + "}");
+    }
+    server.sendContent(String()+"]\r\n");
 
+  } else {
+    server.sendContent(String() + "{ \"error\": \"nowifi\" }");
+  }
+
+  server.client().stop(); // Stop is needed because we sent no content length
+
+ }
 /** Wifi config page handler */
 void handleWifi() {
   server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
