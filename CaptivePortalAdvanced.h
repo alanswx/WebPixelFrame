@@ -7,6 +7,7 @@
 
 void handleRoot(void);
 boolean captivePortal();
+ void handleWifiJSON();
 void handleWifiSave();
 void handleWifi();
 void handleNotFound();

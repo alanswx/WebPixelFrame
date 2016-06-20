@@ -358,6 +358,19 @@ DBG_OUTPUT_PORT.println(upload.currentSize);
  server.send(200, "text/plain", "");
 }
 
+
+int findNextFileNumber()
+{
+  int largestnumber=0;
+  Dir dir = SPIFFS.openDir("/piskeldata/");
+  while (dir.next()) {
+    int filenumber = dir.fileName().toInt();
+    if (filenumber>largestnumber) largestnumber=filenumber;
+  }
+
+  return largestnumber;
+}
+
 void handlePiskelSave() {
   DBG_OUTPUT_PORT.println("handlePiskelSave");
 
@@ -366,6 +379,28 @@ void handlePiskelSave() {
   {
      DBG_OUTPUT_PORT.println("arg: " + server.argName(i) + " val:" +server.arg(i));
   }
+  int filenumber = findNextFileNumber();
+  String filename = "/piskeldata/"+ String(filenumber);
+
+  DBG_OUTPUT_PORT.println("filename ["+filename+"]");
+  File file = SPIFFS.open(filename,"w");
+
+  //String result = String("window.pskl.appEnginePiskelData_ = {\r\n \"piskel\" :");
+  String result = String("{\r\n \"piskel\" :");
+  result += server.arg("framesheet");
+  result += ",\r\n";
+  result +="\"isLoggedIn\": \"true\",";
+  result +="\"fps\":"+server.arg("fps")+",\r\n";
+  result +="\"descriptor\" : {";
+  result +="\"name\": \""+server.arg("name")+"\",";
+  result +="\"description\": \""+server.arg("description")+"\",";
+  result +="\"isPublic\": \"false\"";
+  result +="}\r\n}";
+   DBG_OUTPUT_PORT.println(result);
+  file.write((const uint8_t *)result.c_str(),result.length());
+  if (file)
+    file.close();
+
   
  server.send(200, "text/plain", "");
 }
@@ -573,6 +608,7 @@ void setup(void) {
 void loop(void) {
   loopCaptive(); 
   server.handleClient();
+  MDNS.update();
   if (curPixel) curPixel->UpdateAnimation();
   //image.Blt(*strip,0,0,0,0,8,8,ourLayoutMapCallback);
 
