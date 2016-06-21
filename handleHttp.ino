@@ -25,7 +25,9 @@ void handleRoot() {
     "<p><a href='/edit'>File Editor / Uploader</a>.</p>"
   );
 
-  
+    server.sendContent(
+    "<p><a href='/displayclock'>Display Clock</a>.</p>"
+  );
   server.sendContent(
     "<p><a href='/wifi'>config the wifi connection</a>.</p>"
     "</body></html>"

@@ -17,6 +17,7 @@
 #include <FS.h>
 #include <NeoPixelBus.h>
 #include <NeoPixelAnimator.h>
+#include <NTPClient.h>
 //#include <ArduinoJson.h> 
 #include "NewBitmap.h"
 #include "DisplayPixelsLive.h"
@@ -27,6 +28,13 @@
 
 #define DBG_OUTPUT_PORT Serial
 
+WiFiUDP ntpUDP;
+
+// By default 'time.nist.gov' is used with 60 seconds update interval and
+// no offset
+NTPClient timeClient(ntpUDP,-28800+(60*60/*DST*/));
+
+#define useNTP 1
 
 const char* host = "WebPixelFrame";
 
@@ -38,7 +46,7 @@ DisplayPixelsText *pixelText = new DisplayPixelsText();
 DisplayPixelsAnimatedGIF *pixelGIF = new DisplayPixelsAnimatedGIF();
 DisplayPixelsLive * pixelLive = new DisplayPixelsLive();
 DisplayPixels *curPixel = pixelText;
-
+DisplayClock *pixelClock = new DisplayClock(&timeClient);
 
 
 uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
@@ -119,11 +127,29 @@ bool handleClearScreen()
   return true;
 }
 
+// convert a single hex digit character to its integer value (from https://code.google.com/p/avr-netino/)
+unsigned char h2int(char c)
+{
+  if (c >= '0' && c <= '9') {
+    return((unsigned char)c - '0');
+  }
+  if (c >= 'a' && c <= 'f') {
+    return((unsigned char)c - 'a' + 10);
+  }
+  if (c >= 'A' && c <= 'F') {
+    return((unsigned char)c - 'A' + 10);
+  }
+  return(0);
+}
+
 unsigned long hex2int(char *a, unsigned int len)
 {
    int i;
    unsigned long val = 0;
-
+/*
+   for(i=0;i<len;i++)
+      val += h2int(a[i]) *(1<<(4*(len-1-i)));
+*/ 
    for(i=0;i<len;i++)
       if(a[i] <= 57)
        val += (a[i]-48)*(1<<(4*(len-1-i)));
@@ -487,6 +513,15 @@ void setScrollText()
 
 }
 
+void displayClock()
+{
+  curPixel = pixelClock;
+  pixelClock->UpdateAnimation();
+  server.send(200, "text/html", "clock started");
+
+}
+
+
 void handleFileList() {
   if (!server.hasArg("dir")) {
     server.send(500, "text/plain", "BAD ARGS");
@@ -537,33 +572,11 @@ void setup(void) {
   }
 
 
-  //WIFI INIT
-  //DBG_OUTPUT_PORT.printf("Connecting to %s\n", ssid);
-  //if (String(WiFi.SSID()) != String(ssid)) {
-  //  WiFi.begin(ssid, password);
-  //}
-
-  //while (WiFi.status() != WL_CONNECTED) {
-  //  delay(500);
-  //  DBG_OUTPUT_PORT.print(".");
- // }
-  //DBG_OUTPUT_PORT.println("");
-  //DBG_OUTPUT_PORT.print("Connected! IP address: ");
-  //DBG_OUTPUT_PORT.println(WiFi.localIP());
-
-  //MDNS.begin(host);
-  //DBG_OUTPUT_PORT.print("Open http://");
-  //DBG_OUTPUT_PORT.print(host);
-  //DBG_OUTPUT_PORT.println(".local/edit to see the file browser");
-
-
-
-
   //SERVER INIT
   setupCaptive(&server);
 
   server.on("/setpixels",HTTP_POST,handleSetPixels);
-
+  server.on("/displayclock",HTTP_GET,displayClock);
   server.on("/clearscreen",HTTP_GET,handleClearScreen);
   server.on("/setpixel", HTTP_GET, handleSetPixel);
   server.on("/scroll", HTTP_GET, setScrollText);
@@ -611,7 +624,8 @@ void setup(void) {
   });
   server.begin();
   DBG_OUTPUT_PORT.println("HTTP server started");
-
+    timeClient.begin();
+ 
 }
 
 
@@ -619,6 +633,9 @@ void loop(void) {
   loopCaptive(); 
   server.handleClient();
   MDNS.update();
+  timeClient.update();
+
+
   if (curPixel) curPixel->UpdateAnimation();
   //image.Blt(*strip,0,0,0,0,8,8,ourLayoutMapCallback);
 

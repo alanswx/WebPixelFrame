@@ -25,7 +25,11 @@ void DisplayPixelsText::UpdateAnimation()
     setupStartMillis = now;
     textStartX--;
     int end = _text.length() * fontWidth * -1;
-    if (textStartX <  end) textStartX = 8;
+    if (textStartX <  end) 
+    {
+      textStartX = 8;
+      NewAnimation();
+    }
   }
 
 }

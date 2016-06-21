@@ -24,7 +24,7 @@ const char *softAP_ssid = "WebPixelFrame";
 const char *softAP_password = "WebPixelFrame";
 
 /* hostname for mDNS. Should work at least on windows. Try http://esp8266.local */
-const char *myHostname = "esp8266";
+const char *myHostname = "WebPixelFrame";
 
 /* Don't set this wifi credentials. They are configurated at runtime and stored on EEPROM */
 char ssid[32] = "";
@@ -53,10 +53,14 @@ long lastConnectTry = 0;
 int status = WL_IDLE_STATUS;
 
 void setupCaptive(ESP8266WebServer *server) {
+  Serial.println("Chip ID:");
+  Serial.println(ESP.getChipId());
   Serial.print("Configuring access point...");
   /* You can remove the password parameter if you want the AP to be open. */
   WiFi.softAPConfig(apIP, apIP, netMsk);
-  WiFi.softAP(softAP_ssid, softAP_password);
+  //WiFi.softAP(softAP_ssid, softAP_password);
+  String softap_new_ssid = softAP_ssid+String("_")+String(ESP.getChipId());
+  WiFi.softAP(softap_new_ssid.c_str(), softAP_password);
   delay(500); // Without delay I've seen the IP address blank
   Serial.print("AP IP address: ");
   Serial.println(WiFi.softAPIP());

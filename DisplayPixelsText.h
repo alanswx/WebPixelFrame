@@ -1,5 +1,7 @@
 #pragma once
 #include <ESP8266WiFi.h>
+#include <NTPClient.h>
+
 #include "DisplayPixels.h"
 
 #include "C64FontUpper.h"
@@ -29,6 +31,7 @@ class DisplayPixelsText : public DisplayPixels {
       textStartX = 8;
     }
     virtual void UpdateAnimation(void);
+    virtual void NewAnimation(void) {}
 
   private:
     int drawChar(uint8_t x, uint8_t y, uint8_t c, RgbColor color, uint8_t mode);
@@ -43,6 +46,25 @@ class DisplayPixelsText : public DisplayPixels {
     uint8_t foreColor, drawMode, fontWidth, fontHeight, fontType, fontStartChar, fontTotalChar, cursorX, cursorY;
     uint16_t fontMapWidth;
     int textStartX;
+};
+
+
+class DisplayClock : public DisplayPixelsText
+{
+   public:
+      DisplayClock(NTPClient *pTimeClient) : DisplayPixelsText()
+      {
+        timeClient=pTimeClient;
+         NewAnimation();
+      }
+
+   virtual void NewAnimation(void)
+   {
+      String newTime=timeClient->getFormattedTime();
+      SetText(newTime);
+   }
+
+   NTPClient *timeClient;
 };
 
 
