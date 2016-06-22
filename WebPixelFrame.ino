@@ -59,7 +59,6 @@ uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
 
 const uint16_t AnimCount = 1; // we only need one
 
-//String message = "Hello World";
 
 
 NeoPixelAnimator animations(AnimCount); // NeoPixel animation management object
@@ -441,6 +440,35 @@ void handlePiskelSave() {
  server.send(200, "text/plain", "");
 }
 
+void handlePiskelLoad()
+{
+  DBG_OUTPUT_PORT.println("handlePiskelLoad");
+  String id = server.arg("id");
+  String filename = "/piskeldata/"+ id+".json";
+  DBG_OUTPUT_PORT.println(filename);
+  File  file = SPIFFS.open(filename,"r");
+  String l_line = "";
+//open the file here
+ server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, "text/html", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
+  server.sendContent(
+    "window.pskl = window.pskl || {};"
+     "window.pskl.appEngineToken_ = false;"
+     "window.pskl.appEnginePiskelData_ ="
+  );
+ 
+  while (file.available() != 0) {  
+         
+    l_line = file.readStringUntil('\n'); 
+    server.sendContent(l_line);
+ }
+  if (file) file.close();
+  server.sendContent(
+    ";"
+  );
+  server.client().stop(); 
+}
+
 
 
 void handleFileDelete() {
@@ -599,7 +627,7 @@ void setup(void) {
 
   server.on("/piskelupload",HTTP_POST,  handlePiskelFileUpload, handlePiskelFileUpload);
   server.on("/piskelsave",HTTP_POST,  handlePiskelSave);
-  
+  server.on("/piskelload",HTTP_GET,handlePiskelLoad);
 //handleShowGIF("/pac1/out8.gif");
   
   //called when the url is not defined here
