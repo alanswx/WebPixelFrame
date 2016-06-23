@@ -5,10 +5,14 @@
 
   access the sample web page at http://esp8266fs.local
   edit the page by going to http://esp8266fs.local/edit
+
+
+  Design thoughts:
+    SPIFFS vs SD Card - why can't we have the file classes be similar, and work together?  maybe a wrapper? or a subclass
+
 */
 
-// To build a clock, look at:
-// http://www.esp8266.com/viewtopic.php?f=32&t=2881
+
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -75,11 +79,18 @@ RgbColor white(128);
 //RgbwColor white(128);
 RgbColor black(0);
 
+
+bool handleFileRead(String);
+
 ESP8266WebServer server(80);
 
 void updateScreenCallbackS()
 {
   server.handleClient();
+   loopCaptive(); 
+ 
+  MDNS.update();
+  timeClient.update();
 }
 
 //holds the current upload
@@ -271,10 +282,147 @@ bool handleShow(String path) {
   return true;
 
 }
+
+
+/*
+ * If we are autosaving, then we want to increment the next javascript number
+ * 
+ */
+int findNextFileNumber()
+{
+  int largestnumber=0;
+  Dir dir = SPIFFS.openDir("/piskeldata/");
+  while (dir.next()) {
+    int pos = dir.fileName().lastIndexOf(".json");
+    int slashpos = dir.fileName().lastIndexOf("/");
+     DBG_OUTPUT_PORT.println("filename:"+dir.fileName());
+     DBG_OUTPUT_PORT.println(pos);
+    String filenumberS = dir.fileName().substring(slashpos+1,pos);
+   DBG_OUTPUT_PORT.println(filenumberS);
+     int filenumber = filenumberS.toInt();
+     filenumber++;
+    if (filenumber>largestnumber) largestnumber=filenumber;
+  }
+  DBG_OUTPUT_PORT.print("largestnumber: ");
+ DBG_OUTPUT_PORT.println(largestnumber);
+  return largestnumber;
+}
+
+
+void handlePiskelSave(String id) {
+  DBG_OUTPUT_PORT.println("handlePiskelSave");
+
+  int numArgs = server.args();
+  for (int i=0;i<numArgs;i++)
+  {
+     DBG_OUTPUT_PORT.println("arg: " + server.argName(i) + " val:" +server.arg(i));
+  }
+
+  //String result;
+  String filename="";
+  if (id)
+  {
+   filename = "/piskeldata/"+ id+".json";    
+  }
+  else
+  {
+  int filenumber = findNextFileNumber();
+  DBG_OUTPUT_PORT.println("filenumber:"+filenumber);
+   filename = "/piskeldata/"+ String(filenumber)+".json";
+  }
+  DBG_OUTPUT_PORT.println("filename ["+filename+"]");
+  File file = SPIFFS.open(filename,"w");
+
+  //String result = String("window.pskl.appEnginePiskelData_ = {\r\n \"piskel\" :");
+  String result = String("{\r\n \"piskel\" :");
+  result += server.arg("framesheet");
+  result += ",\r\n";
+  result +="\"isLoggedIn\": \"true\",";
+  result +="\"fps\":"+server.arg("fps")+",\r\n";
+  result +="\"descriptor\" : {";
+  result +="\"name\": \""+server.arg("name")+"\",";
+  result +="\"description\": \""+server.arg("description")+"\",";
+  result +="\"isPublic\": \"false\"";
+  result +="}\r\n}";
+   DBG_OUTPUT_PORT.println(result);
+  file.write((const uint8_t *)result.c_str(),result.length());
+  if (file)
+    file.close();
+
+  
+ server.send(200, "text/plain", "");
+}
+
+
+void handlePiskelLoad(String id)
+{
+  DBG_OUTPUT_PORT.println("handlePiskelLoad");
+ 
+  String filename = "/piskeldata/"+ id+".json";
+  DBG_OUTPUT_PORT.println(filename);
+  File  file = SPIFFS.open(filename,"r");
+
+
+  
+  String l_line = "";
+//open the file here
+ server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, "text/html", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
+  server.sendContent(
+    "window.pskl = window.pskl || {};"
+     "window.pskl.appEngineToken_ = false;"
+     "window.pskl.appEnginePiskelData_ ="
+  );
+
+ if (!file)
+ {
+  // write an empty file
+         
+        server.sendContent(
+          "{"
+          "piskel : null,"
+        "isLoggedIn : true,"
+        "fps : 4,"
+        "descriptor : {"
+          "name : \"New piskel\","
+          "description : \"\","
+          "isPublic : true"
+        "}"
+         "}"
+        );
+     
+ }
+ else
+ {
+  while (file.available() != 0) {  
+         
+    l_line = file.readStringUntil('\n'); 
+    server.sendContent(l_line);
+  }
+ }
+  if (file) file.close();
+  server.sendContent(
+    ";"
+  );
+  server.client().stop(); 
+}
+
+
+
+
+/*
+ * The SPIFFS system has a limit to the number of characters in a file name
+ * 
+ * We rewrite the files with a shell script to be a number, or number.gz and 
+ * then use an index file to map them.
+ */
+
 bool handleFileReadPO(String path) {
 String short_name = "";
 int found=0;
 
+ if (path.endsWith("/")) path += "index.html";
+ 
 // read the file from disk that is our index:
 File file = SPIFFS.open("/pindex.txt", "r");
 String l_line = "";
@@ -323,10 +471,102 @@ if (found==0) return false;
 
 
 }
+
+
+void handleFilePiskelJSONIndex()
+{
+  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  server.sendHeader("Pragma", "no-cache");
+  server.sendHeader("Expires", "-1");
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, "text/json", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
+  Dir dir = SPIFFS.openDir("/piskeldata/");
+  server.sendContent("[");
+  int first=1;
+  while (dir.next()) {
+    if (first)
+      first=0;
+    else 
+      server.sendContent(",");
+     
+    File file = SPIFFS.open(dir.fileName(), "r");
+    server.client().write(file, HTTP_DOWNLOAD_UNIT_SIZE);
+    file.close();
+      
+  }
+  server.sendContent("]");
+  server.client().stop(); // Stop is needed because we sent no content length
+
+}
+/*
+ *  The piskel code expects url's to look like:
+ *  
+ *  /piskel/<ID>/index.html
+ *  
+ *  we are going to pull out the ID and then call the PO routine to handle the actual files
+ *  
+ */
+
+ 
+bool handleFileReadPiskel(String path)
+{
+
+  if (path=="/piskel/")
+  {
+     // we should print out our gallery here
+     handleFileRead("/gallery.html");
+     return true;
+  }
+  else if (path=="/piskel/json")
+  {
+     handleFilePiskelJSONIndex();
+     return true;
+  }
+
+  
+   /* move forward /piskel/ characters, and find the next / */
+   int piskelLen = 8;
+   int pos = path.indexOf("/",piskelLen);
+   String filenumberS = path.substring(piskelLen,pos);
+   DBG_OUTPUT_PORT.println(filenumberS);
+
+   String newpath = path.substring(pos+1);
+   newpath = String("/p/")+newpath;
+   DBG_OUTPUT_PORT.println(newpath);
+
+   // if we have the data js file, then we return that, otherwise we return the static files
+   if (newpath=="/p/load")
+   {
+      handlePiskelLoad(filenumberS);
+      return true;
+   }
+   else if (newpath=="/p/save")
+   {
+      handlePiskelSave(filenumberS);
+       return true;
+   }
+   else
+       return handleFileReadPO(newpath);
+   
+   return true;
+}
+
+/*
+ * All URLs that haven't been defined in the setup end up going through here
+ * 
+ * return true if we took care of it, or false, and in setup there is some code to send a 404
+ * 
+ * We need a path handler in here, to redirect chunks of paths like the /p/ 
+ * 
+ */
+
 bool handleFileRead(String path) {
   DBG_OUTPUT_PORT.println("handleFileRead: " + path);
 
+  /* Handle the p subdirectory - which looks up files by an index file */
   if (path.startsWith("/p/")) return handleFileReadPO(path);
+
+  if (path.startsWith("/piskel/")) return handleFileReadPiskel(path);
   
   if (path.endsWith("/")) path += "index.htm";
   String contentType = getContentType(path);
@@ -383,92 +623,6 @@ DBG_OUTPUT_PORT.println(upload.currentSize);
   
  server.send(200, "text/plain", "");
 }
-
-
-int findNextFileNumber()
-{
-  int largestnumber=0;
-  Dir dir = SPIFFS.openDir("/piskeldata/");
-  while (dir.next()) {
-    int pos = dir.fileName().lastIndexOf(".json");
-    int slashpos = dir.fileName().lastIndexOf("/");
-     DBG_OUTPUT_PORT.println("filename:"+dir.fileName());
-     DBG_OUTPUT_PORT.println(pos);
-    String filenumberS = dir.fileName().substring(slashpos+1,pos);
-   DBG_OUTPUT_PORT.println(filenumberS);
-     int filenumber = filenumberS.toInt();
-     filenumber++;
-    if (filenumber>largestnumber) largestnumber=filenumber;
-  }
-  DBG_OUTPUT_PORT.print("largestnumber: ");
- DBG_OUTPUT_PORT.println(largestnumber);
-  return largestnumber;
-}
-
-void handlePiskelSave() {
-  DBG_OUTPUT_PORT.println("handlePiskelSave");
-
-  int numArgs = server.args();
-  for (int i=0;i<numArgs;i++)
-  {
-     DBG_OUTPUT_PORT.println("arg: " + server.argName(i) + " val:" +server.arg(i));
-  }
-  int filenumber = findNextFileNumber();
-  DBG_OUTPUT_PORT.println("filenumber:"+filenumber);
-  String filename = "/piskeldata/"+ String(filenumber)+".json";
-
-  DBG_OUTPUT_PORT.println("filename ["+filename+"]");
-  File file = SPIFFS.open(filename,"w");
-
-  //String result = String("window.pskl.appEnginePiskelData_ = {\r\n \"piskel\" :");
-  String result = String("{\r\n \"piskel\" :");
-  result += server.arg("framesheet");
-  result += ",\r\n";
-  result +="\"isLoggedIn\": \"true\",";
-  result +="\"fps\":"+server.arg("fps")+",\r\n";
-  result +="\"descriptor\" : {";
-  result +="\"name\": \""+server.arg("name")+"\",";
-  result +="\"description\": \""+server.arg("description")+"\",";
-  result +="\"isPublic\": \"false\"";
-  result +="}\r\n}";
-   DBG_OUTPUT_PORT.println(result);
-  file.write((const uint8_t *)result.c_str(),result.length());
-  if (file)
-    file.close();
-
-  
- server.send(200, "text/plain", "");
-}
-
-void handlePiskelLoad()
-{
-  DBG_OUTPUT_PORT.println("handlePiskelLoad");
-  String id = server.arg("id");
-  String filename = "/piskeldata/"+ id+".json";
-  DBG_OUTPUT_PORT.println(filename);
-  File  file = SPIFFS.open(filename,"r");
-  String l_line = "";
-//open the file here
- server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  server.send(200, "text/html", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
-  server.sendContent(
-    "window.pskl = window.pskl || {};"
-     "window.pskl.appEngineToken_ = false;"
-     "window.pskl.appEnginePiskelData_ ="
-  );
- 
-  while (file.available() != 0) {  
-         
-    l_line = file.readStringUntil('\n'); 
-    server.sendContent(l_line);
- }
-  if (file) file.close();
-  server.sendContent(
-    ";"
-  );
-  server.client().stop(); 
-}
-
 
 
 void handleFileDelete() {
@@ -626,10 +780,7 @@ void setup(void) {
   }, handleFileUpload);
 
   server.on("/piskelupload",HTTP_POST,  handlePiskelFileUpload, handlePiskelFileUpload);
-  server.on("/piskelsave",HTTP_POST,  handlePiskelSave);
-  server.on("/piskelload",HTTP_GET,handlePiskelLoad);
-//handleShowGIF("/pac1/out8.gif");
-  
+ 
   //called when the url is not defined here
   //use it to load content from SPIFFS
   server.onNotFound([]() {
