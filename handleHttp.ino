@@ -19,7 +19,7 @@ void handleRoot() {
   }
 
   server.sendContent(
-    "<p><a href='/p/index.html'>Launch Pixel Editor</a>.</p>"
+    "<p><a href='/gallery.html'>Piskel Gallery</a>.</p>"
   );
   server.sendContent(
     "<p><a href='/edit'>File Editor / Uploader</a>.</p>"

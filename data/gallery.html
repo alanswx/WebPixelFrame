@@ -1,9 +1,9 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
-greenfield json goes here!!
-<table id='gallery' border="1"><table>  
+<table id='gallery' border="1"></table>  
+<div id='new' ></div>  
 <script>
 $.ajax({url: "/piskel/json", success: function(result){
-
+var lastnum =0;
 $(result).each(function(index, element){  
     console.log(index);
     console.log(element);
@@ -12,13 +12,20 @@ $(result).each(function(index, element){
     {
        id = key;
     }
+
+    var nid = parseInt(id);
+    if (nid > lastnum)  lastnum=nid;
+
       var name = element[id]['descriptor']['name'];
+      var desc= element[id]['descriptor']['description'];
       var first_frame= element[id]['descriptor']['first_frame_as_png'];
       console.log(name);
       console.log(first_frame);
 
-     $('#gallery').append('<tr><td> '+name+' </td> <td> <a href="/piskel/'+id+'/"><img src="'+first_frame+'" style="display:block; width:192px; height:192px;" ></a></td></tr>');
+     $('#gallery').append('<tr><td> '+name+'<br/>'+desc+' </td> <td> <a href="/piskel/'+id+'/"><img src="'+first_frame+'" style="display:block; width:192px; height:192px;" ></a></td></tr>');
 })
+     lastnum = lastnum+1;
+     $('#new').append('<a href="/piskel/'+lastnum+'/">New</a>');
     }});
 
 </script>
