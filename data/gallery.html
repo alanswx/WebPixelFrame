@@ -1,0 +1,24 @@
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+greenfield json goes here!!
+<table id='gallery' border="1"><table>  
+<script>
+$.ajax({url: "/piskel/json", success: function(result){
+
+$(result).each(function(index, element){  
+    console.log(index);
+    console.log(element);
+    var id = 0;
+    for (var key in element)
+    {
+       id = key;
+    }
+      var name = element[id]['descriptor']['name'];
+      var first_frame= element[id]['descriptor']['first_frame_as_png'];
+      console.log(name);
+      console.log(first_frame);
+
+     $('#gallery').append('<tr><td> '+name+' </td> <td> <a href="/piskel/'+id+'/"><img src="'+first_frame+'" style="display:block; width:192px; height:192px;" ></a></td></tr>');
+})
+    }});
+
+</script>
