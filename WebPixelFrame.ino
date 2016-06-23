@@ -288,19 +288,26 @@ bool handleShow(String path) {
  * If we are autosaving, then we want to increment the next javascript number
  * 
  */
+
+String numberFromPath(String path)
+{
+  int pos = path.lastIndexOf(".json");
+  int slashpos = path.lastIndexOf("/");
+  String filenumberS = path.substring(slashpos+1,pos);
+
+  return filenumberS;
+}
+ 
 int findNextFileNumber()
 {
   int largestnumber=0;
   Dir dir = SPIFFS.openDir("/piskeldata/");
   while (dir.next()) {
-    int pos = dir.fileName().lastIndexOf(".json");
-    int slashpos = dir.fileName().lastIndexOf("/");
-     DBG_OUTPUT_PORT.println("filename:"+dir.fileName());
-     DBG_OUTPUT_PORT.println(pos);
-    String filenumberS = dir.fileName().substring(slashpos+1,pos);
-   DBG_OUTPUT_PORT.println(filenumberS);
-     int filenumber = filenumberS.toInt();
-     filenumber++;
+    String filenumberS = numberFromPath(dir.fileName());
+    
+    DBG_OUTPUT_PORT.println(filenumberS);
+    int filenumber = filenumberS.toInt();
+    filenumber++;
     if (filenumber>largestnumber) largestnumber=filenumber;
   }
   DBG_OUTPUT_PORT.print("largestnumber: ");
@@ -342,6 +349,11 @@ void handlePiskelSave(String id) {
   result +="\"descriptor\" : {";
   result +="\"name\": \""+server.arg("name")+"\",";
   result +="\"description\": \""+server.arg("description")+"\",";
+
+  result +="\"first_frame_as_png\": \""+server.arg("first_frame_as_png")+"\",";
+  result +="\"framesheet_as_png\": \""+server.arg("framesheet_as_png")+"\",";
+  
+  
   result +="\"isPublic\": \"false\"";
   result +="}\r\n}";
    DBG_OUTPUT_PORT.println(result);
@@ -490,7 +502,13 @@ void handleFilePiskelJSONIndex()
       server.sendContent(",");
      
     File file = SPIFFS.open(dir.fileName(), "r");
+    String number = numberFromPath(dir.fileName());
+
+    
+    server.sendContent("{\""+number+"\":");
+    
     server.client().write(file, HTTP_DOWNLOAD_UNIT_SIZE);
+    server.sendContent("}");
     file.close();
       
   }
