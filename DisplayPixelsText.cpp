@@ -11,14 +11,14 @@ void DisplayPixelsText::UpdateAnimation()
   */
 
   //Serial.println("about to create red pixel");
-  RgbColor red(128, 0, 0);
+  //RgbColor red(128, 0, 0);
   //  strip->SetPixelColor(mosaic.Map(0, 0), red);
   //  strip->Show();
   // delay(1000);
   //   Serial.println("after red pixel");
 
 
-  drawString(textStartX, 0, _text, red);
+  drawString(textStartX, 0, _text, textColor);
   int now = millis();
   if (now -   setupStartMillis  > 100000 / 1000 )
   {

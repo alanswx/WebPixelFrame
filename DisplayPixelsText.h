@@ -21,7 +21,9 @@ static const unsigned char *fontsPointer[TOTALFONTS]  = {
 class DisplayPixelsText : public DisplayPixels {
   public:
     DisplayPixelsText() {
-      setFontType(0);
+      setFontType(2);
+      textColor.R= 128; textColor.G=textColor.B=0;
+      
       black.R = black.G = black.B = 0;
       setupStartMillis = millis();
       textStartX = 8;
@@ -29,6 +31,11 @@ class DisplayPixelsText : public DisplayPixels {
     void SetText(String text) {
       _text = text;
       textStartX = 8;
+    }
+    void SetColor(RgbColor newColor)
+    {
+      textColor = newColor;
+      
     }
     virtual void UpdateAnimation(void);
     virtual void NewAnimation(void) {}
@@ -42,6 +49,7 @@ class DisplayPixelsText : public DisplayPixels {
     String _text;
 
     RgbColor black;
+    RgbColor textColor;
     long setupStartMillis;
     uint8_t foreColor, drawMode, fontWidth, fontHeight, fontType, fontStartChar, fontTotalChar, cursorX, cursorY;
     uint16_t fontMapWidth;

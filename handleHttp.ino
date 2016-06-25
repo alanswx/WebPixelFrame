@@ -28,6 +28,25 @@ void handleRoot() {
     server.sendContent(
     "<p><a href='/displayclock'>Display Clock</a>.</p>"
   );
+  
+  server.sendContent(
+    "<p><form action=\"/scroll\" method=\"get\">"
+     "<div>"
+        "<label for=\"text\">Text:</label>"
+        "<input type=\"text\" id=\"text\" name=\"text\" value=\"Hello\"/>"
+         "</div>"
+           "<div>"
+        "<label for=\"color\">Color:</label>"
+        "<input type=\"text\" id=\"color\" name=\"color\" value=\"ff0000\"/>"
+         "</div>"
+        "<div class=\"button\">"
+        "<button type=\"submit\">Start</button>"
+        "</div>"
+   
+    "</form></p>"
+  );
+
+  
   server.sendContent(
     "<p><a href='/wifi'>config the wifi connection</a>.</p>"
     "</body></html>"

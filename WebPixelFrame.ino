@@ -84,13 +84,14 @@ bool handleFileRead(String);
 
 ESP8266WebServer server(80);
 
+/* called from animate gif code */
 void updateScreenCallbackS()
 {
   server.handleClient();
-   loopCaptive(); 
+  loopCaptive(); 
  
   MDNS.update();
-  timeClient.update();
+  
 }
 
 //holds the current upload
@@ -156,17 +157,20 @@ unsigned long hex2int(char *a, unsigned int len)
 {
    int i;
    unsigned long val = 0;
-/*
+
    for(i=0;i<len;i++)
       val += h2int(a[i]) *(1<<(4*(len-1-i)));
-*/ 
+/*
    for(i=0;i<len;i++)
       if(a[i] <= 57)
        val += (a[i]-48)*(1<<(4*(len-1-i)));
       else
        val += (a[i]-55)*(1<<(4*(len-1-i)));
+       */
    return val;
 }
+
+
 bool handleSetPixels()
 {
  /*
@@ -700,7 +704,27 @@ void setScrollText()
     server.send(500, "text/plain", "BAD ARGS");
     return;
   }
-
+  String colorS = server.arg("color");
+  if (colorS)
+  {
+    int pos=0;
+    char hr[4];
+       hr[0]=colorS[pos++];
+       hr[1]=colorS[pos++];
+       hr[2]=0;
+       int r = hex2int(hr,2);
+       char hg[4];       
+       hg[0]=colorS[pos++];
+       hg[1]=colorS[pos++];
+       hg[2]=0;
+       int g = hex2int(hg,2);
+       char hb[4];
+       hb[0]=colorS[pos++];
+       hb[1]=colorS[pos++];
+       hb[2]=0;
+       int b = hex2int(hb,2);
+    pixelText->SetColor(RgbColor(r,g,b));
+  }
 
   pixelText->SetText(server.arg("text"));
 

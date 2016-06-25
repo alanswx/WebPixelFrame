@@ -15,6 +15,13 @@ class DisplayPixelsLive : public DisplayPixels {
      
     }
 
+    void SetPixel(int x, int y, HtmlColor htmlcolor)
+    {
+      RgbColor color(htmlcolor);
+       strip->SetPixelColor(mosaic.Map(x, y), color);
+    }
+
+
     void SetPixel(int x, int y, int red, int green, int blue)
     {
         RgbColor color(red, green, blue);
