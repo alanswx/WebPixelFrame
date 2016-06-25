@@ -118,7 +118,8 @@ void loopCaptive() {
         Serial.println ( WiFi.localIP() );
 
         // Setup MDNS responder
-        if (!MDNS.begin(myHostname)) {
+        String softap_new_ssid = softAP_ssid+String("_")+String(ESP.getChipId());
+        if (!MDNS.begin(softap_new_ssid.c_str()/*myHostname*/)) {
           Serial.println("Error setting up MDNS responder!");
         } else {
           Serial.println("mDNS responder started");

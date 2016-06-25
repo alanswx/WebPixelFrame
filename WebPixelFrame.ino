@@ -14,19 +14,23 @@
 
 
 
-#include <ESP8266WiFi.h>
+#include <ESP8266WiFi.h>   //https://github.com/esp8266/Arduino
+
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <FS.h>
-#include <NeoPixelBus.h>
-#include <NeoPixelAnimator.h>
-#include <NTPClient.h>
+#include <NeoPixelBus.h>   // https://github.com/Makuna/NeoPixelBus
+//#include <NeoPixelAnimator.h>
+#include <NTPClient.h>   // https://github.com/arduino-libraries/NTPClient
 //#include <ArduinoJson.h> 
+#include <DNSServer.h>
 #include "NewBitmap.h"
 #include "DisplayPixelsLive.h"
 #include "DisplayPixelsText.h"
 #include "DisplayPixelsAnimatedGIF.h"
+
+//#include "WiFiManager.h"          //https://github.com/tzapu/WiFiManager
 
 #include "CaptivePortalAdvanced.h"
 
@@ -40,11 +44,7 @@ NTPClient timeClient(ntpUDP,-28800+(60*60/*DST*/));
 
 #define useNTP 1
 
-const char* host = "WebPixelFrame";
-
-
 NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> *strip = new NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> (PixelCount, 2);
-
 
 DisplayPixelsText *pixelText = new DisplayPixelsText();
 DisplayPixelsAnimatedGIF *pixelGIF = new DisplayPixelsAnimatedGIF();
@@ -60,24 +60,6 @@ uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
 
 }
 
-
-const uint16_t AnimCount = 1; // we only need one
-
-
-
-NeoPixelAnimator animations(AnimCount); // NeoPixel animation management object
-
-// our NeoBitmapFile will use the same color feature as NeoPixelBus and
-// we want it to use the SD File object
-NeoBitmapFileAl<MyPixelColorFeature, File> image;
-RgbColor red(128, 0, 0);
-RgbColor green(0, 128, 0);
-RgbColor blue(0, 0, 128);
-RgbColor white(128);
-// if using NeoRgbwFeature above, use this white instead to use
-// the correct white element of the LED
-//RgbwColor white(128);
-RgbColor black(0);
 
 
 bool handleFileRead(String);
@@ -276,7 +258,7 @@ bool handleShow(String path) {
   ESP.wdtFeed();
   ESP.wdtFeed();
   // initialize the image with the file
-  if (!image.Begin(bitmapFile))
+//  if (!image.Begin(bitmapFile))
   {
     Serial.println("File format fail, not a supported bitmap");
     // don't do anything more:
@@ -774,13 +756,23 @@ void handleFileList() {
   server.send(200, "text/json", output);
 }
 
+/*
+void configModeCallback (WiFiManager *myWiFiManager) {
+  Serial.println("Entered config mode");
+  Serial.println(WiFi.softAPIP());
+  //if you used auto generated SSID, print it
+  Serial.println(myWiFiManager->getConfigPortalSSID());
+}
+*/
+
 void setup(void) {
 
   DBG_OUTPUT_PORT.begin(115200);
   DBG_OUTPUT_PORT.print("\n");
   DBG_OUTPUT_PORT.setDebugOutput(true);
 
-
+  WiFi.disconnect();
+  
   strip->Begin();
   strip->Show();
 
@@ -794,6 +786,33 @@ void setup(void) {
     }
     DBG_OUTPUT_PORT.printf("\n");
   }
+
+/*
+  //WiFiManager
+  //Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wifiManager;
+  //reset settings - for testing
+  //wifiManager.resetSettings();
+
+  //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
+  wifiManager.setAPCallback(configModeCallback);
+
+  //fetches ssid and pass and tries to connect
+  //if it does not connect it starts an access point with the specified name
+  //here  "AutoConnectAP"
+  //and goes into a blocking loop awaiting configuration
+  if(!wifiManager.autoConnect()) {
+    Serial.println("failed to connect and hit timeout");
+    //reset and try again, or maybe put it to deep sleep
+    ESP.reset();
+    delay(1000);
+  } 
+
+*/
+
+  //if you get here you have connected to the WiFi
+  Serial.println("connected...yeey :)");
+
 
 
   //SERVER INIT
@@ -826,9 +845,10 @@ void setup(void) {
   //called when the url is not defined here
   //use it to load content from SPIFFS
   server.onNotFound([]() {
-      if (captivePortal()) { // If caprive portal redirect instead of displaying the page.
+     if (captivePortal()) { // If caprive portal redirect instead of displaying the page.
     return;
   }
+  
     if (!handleFileRead(server.uri()))
       server.send(404, "text/plain", "FileNotFound");
   });
@@ -849,13 +869,25 @@ void setup(void) {
  
 }
 
+int oldheap=0;
 
 void loop(void) {
   loopCaptive(); 
   server.handleClient();
   MDNS.update();
   timeClient.update();
+ 
+  int heap = ESP.getFreeHeap();
+  if (heap!=oldheap)
+  {
+    
+    DBG_OUTPUT_PORT.println("Heap change:");
+        DBG_OUTPUT_PORT.print(oldheap);
+    DBG_OUTPUT_PORT.print (" ");
+    DBG_OUTPUT_PORT.println(heap);
+    oldheap=heap;
 
+  }
 
   if (curPixel) curPixel->UpdateAnimation();
   //image.Blt(*strip,0,0,0,0,8,8,ourLayoutMapCallback);
