@@ -142,13 +142,7 @@ unsigned long hex2int(char *a, unsigned int len)
 
    for(i=0;i<len;i++)
       val += h2int(a[i]) *(1<<(4*(len-1-i)));
-/*
-   for(i=0;i<len;i++)
-      if(a[i] <= 57)
-       val += (a[i]-48)*(1<<(4*(len-1-i)));
-      else
-       val += (a[i]-55)*(1<<(4*(len-1-i)));
-       */
+
    return val;
 }
 
@@ -163,7 +157,7 @@ bool handleSetPixels()
   }
 */
   String pixels = server.arg("pixels");
-  pixels.toUpperCase();
+  //pixels.toUpperCase();
   int pos=0;
   // let's pull the hex values out
   for (int y=0;y<8;y++)
@@ -185,24 +179,7 @@ bool handleSetPixels()
        hb[1]=pixels[pos++];
        hb[2]=0;
        int b = hex2int(hb,2);
-       /*
-       DBG_OUTPUT_PORT.print("setpixels: ");
-       DBG_OUTPUT_PORT.print(x);
-       DBG_OUTPUT_PORT.print(" ");
-       DBG_OUTPUT_PORT.print(y);
-       DBG_OUTPUT_PORT.print(" (");
-       DBG_OUTPUT_PORT.print(hr);
-       DBG_OUTPUT_PORT.print(")");
-       DBG_OUTPUT_PORT.print(r);
-       DBG_OUTPUT_PORT.print(" (");
-       DBG_OUTPUT_PORT.print(hg);
-       DBG_OUTPUT_PORT.print(")");
-       DBG_OUTPUT_PORT.print(g);
-       DBG_OUTPUT_PORT.print(" (");
-       DBG_OUTPUT_PORT.print(hb);
-       DBG_OUTPUT_PORT.print(")");
-       DBG_OUTPUT_PORT.println(b);
-       */
+     
        
        pixelLive->SetPixel(x,y,r,g,b);
     }
