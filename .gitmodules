@@ -1,0 +1,3 @@
+[submodule "piskel"]
+	path = piskel
+	url = git@github.com:alanswx/piskel.git
