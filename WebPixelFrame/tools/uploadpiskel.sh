@@ -1,6 +1,6 @@
 cd ../
 rm -rf p
-cp -r ../piskel-master/dest/prod p
+cp -r ../piskel/dest/prod p
 rm -rf data/po
 rm -f p/js/piskel-packageda.js
 php tools/convertdir.php
