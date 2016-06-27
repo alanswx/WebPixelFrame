@@ -24,7 +24,7 @@ void DisplayPixelsText::UpdateAnimation()
   {
     setupStartMillis = now;
     textStartX--;
-    int end = _text.length() * fontWidth * -1;
+    int end = strlen(_text) * fontWidth * -1;
     if (textStartX <  end) 
     {
       textStartX = 8;
@@ -170,15 +170,15 @@ uint8_t DisplayPixelsText::setFontType(uint8_t type) {
 }
 
 
-int DisplayPixelsText::drawString(uint8_t x, uint8_t y, String text, RgbColor color)
+int DisplayPixelsText::drawString(uint8_t x, uint8_t y, const char *text, RgbColor color)
 {
   // start at x, and call drawChar for each.. increment x, and return it..
-  int length = text.length();
+  int length = strlen(text);
   int last = x;
   int totalWidth = 0;
   for (int i = 0; i < length; i++)
   {
-    int width = drawChar(last, 0, text.charAt(i), color, 0);
+    int width = drawChar(last, 0, text[i], color, 0);
     last += width;
     totalWidth += width;
   }

@@ -1,6 +1,6 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h> 
-#include <ESP8266WebServer.h>
+//#include <ESP8266WebServer.h>
 #include <DNSServer.h>
 #include <ESP8266mDNS.h>
 #include <EEPROM.h>
@@ -25,7 +25,7 @@ const char *softAP_password = "WebPixelFrame";
 
 /* hostname for mDNS. Should work at least on windows. Try http://esp8266.local */
 const char *myHostname = "WebPixelFrame";
-
+#if 0
 /* Don't set this wifi credentials. They are configurated at runtime and stored on EEPROM */
 char ssid[32] = "";
 char password[32] = "";
@@ -53,8 +53,13 @@ long lastConnectTry = 0;
 int status = WL_IDLE_STATUS;
 
 void setupCaptive(ESP8266WebServer *server) {
+
+  
   Serial.println("Chip ID:");
   Serial.println(ESP.getChipId());
+
+
+  
   Serial.print("Configuring access point...");
   /* You can remove the password parameter if you want the AP to be open. */
   WiFi.softAPConfig(apIP, apIP, netMsk);
@@ -69,6 +74,7 @@ void setupCaptive(ESP8266WebServer *server) {
   dnsServer.setTTL(300);
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer.start(DNS_PORT, "*", apIP);
+
 
   /* Setup web pages: root, wifi config pages, SO captive portal detectors and not found. */
   server->on("/", handleRoot);
@@ -131,10 +137,13 @@ void loopCaptive() {
       }
     }
   }
+
+  if (status==WL_CONNECTED)
+     MDNS.update();
   // Do work:
   //DNS
   dnsServer.processNextRequest();
   //HTTP
-  server.handleClient();
+  server->handleClient();
 }
-
+#endif

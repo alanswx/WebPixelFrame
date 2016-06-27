@@ -1,56 +1,23 @@
-/*
-  upload the contents of the data folder with MkSPIFFS Tool ("ESP8266 Sketch Data Upload" in Tools menu in Arduino IDE)
-  or you can upload the contents of a folder if you CD in that folder and run the following command:
-  for file in `ls -A1`; do curl -F "file=@$PWD/$file" esp8266fs.local/edit; done
-
-  access the sample web page at http://esp8266fs.local
-  edit the page by going to http://esp8266fs.local/edit
-
-
-  Design thoughts:
-    SPIFFS vs SD Card - why can't we have the file classes be similar, and work together?  maybe a wrapper? or a subclass
-
-*/
-
-
-
-#include <ESP8266WiFi.h>   //https://github.com/esp8266/Arduino
-
-#include <WiFiClient.h>
-#include <ESP8266WebServer.h>
+#include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
+#include <ArduinoOTA.h>
 #include <FS.h>
+#include <Hash.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+
 #include <NeoPixelBus.h>   // https://github.com/Makuna/NeoPixelBus
-//#include <NeoPixelAnimator.h>
 #include <NTPClient.h>   // https://github.com/arduino-libraries/NTPClient
-//#include <ArduinoJson.h> 
 #include <DNSServer.h>
-#include "NewBitmap.h"
+
+
 #include "DisplayPixelsLive.h"
 #include "DisplayPixelsText.h"
 #include "DisplayPixelsAnimatedGIF.h"
 
-//#include "WiFiManager.h"          //https://github.com/tzapu/WiFiManager
-
-#include "CaptivePortalAdvanced.h"
-
 #define DBG_OUTPUT_PORT Serial
 
-WiFiUDP ntpUDP;
-
-// By default 'time.nist.gov' is used with 60 seconds update interval and
-// no offset
-NTPClient timeClient(ntpUDP,-28800+(60*60/*DST*/));
-
-#define useNTP 1
-
 NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> *strip = new NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> (PixelCount, 2);
-
-DisplayPixelsText *pixelText = new DisplayPixelsText();
-DisplayPixelsAnimatedGIF *pixelGIF = new DisplayPixelsAnimatedGIF();
-DisplayPixelsLive * pixelLive = new DisplayPixelsLive();
-DisplayPixels *curPixel = pixelText;
-DisplayClock *pixelClock = new DisplayClock(&timeClient);
 
 
 uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
@@ -60,821 +27,921 @@ uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
 
 }
 
-
-
-bool handleFileRead(String);
-
-ESP8266WebServer server(80);
-
 /* called from animate gif code */
 void updateScreenCallbackS()
 {
-  server.handleClient();
-  loopCaptive(); 
- 
+  //dnsServer.processNextRequest();
   MDNS.update();
-  
-}
 
-//holds the current upload
-File fsUploadFile;
-
-//format bytes
-String formatBytes(size_t bytes) {
-  if (bytes < 1024) {
-    return String(bytes) + "B";
-  } else if (bytes < (1024 * 1024)) {
-    return String(bytes / 1024.0) + "KB";
-  } else if (bytes < (1024 * 1024 * 1024)) {
-    return String(bytes / 1024.0 / 1024.0) + "MB";
-  } else {
-    return String(bytes / 1024.0 / 1024.0 / 1024.0) + "GB";
-  }
-}
-
-String getContentType(String filename) {
-  if (server.hasArg("download")) return "application/octet-stream";
-  else if (filename.endsWith(".htm")) return "text/html";
-  else if (filename.endsWith(".html")) return "text/html";
-  else if (filename.endsWith(".css")) return "text/css";
-  else if (filename.endsWith(".js")) return "application/javascript";
-  else if (filename.endsWith(".png")) return "image/png";
-  else if (filename.endsWith(".gif")) return "image/gif";
-  else if (filename.endsWith(".jpg")) return "image/jpeg";
-  else if (filename.endsWith(".ico")) return "image/x-icon";
-  else if (filename.endsWith(".xml")) return "text/xml";
-  else if (filename.endsWith(".pdf")) return "application/x-pdf";
-  else if (filename.endsWith(".zip")) return "application/x-zip";
-  else if (filename.endsWith(".gz")) return "application/x-gzip";
-  else if (filename.endsWith(".bmp")) return "image/x-windows-bmp";
-  return "text/plain";
 }
 
 
-bool handleClearScreen()
-{
-  pixelLive->Clear();
-  curPixel = pixelLive;
-  
-  server.send(200, "text/plain", "");
-  return true;
-}
 
-// convert a single hex digit character to its integer value (from https://code.google.com/p/avr-netino/)
-unsigned char h2int(char c)
-{
-  if (c >= '0' && c <= '9') {
-    return((unsigned char)c - '0');
-  }
-  if (c >= 'a' && c <= 'f') {
-    return((unsigned char)c - 'a' + 10);
-  }
-  if (c >= 'A' && c <= 'F') {
-    return((unsigned char)c - 'A' + 10);
-  }
-  return(0);
-}
+class DisplayHandler: public AsyncWebHandler {
+    DisplayPixelsText *pixelText;
+    DisplayPixelsAnimatedGIF *pixelGIF;
+    DisplayPixelsLive * pixelLive;
+    DisplayPixels *curPixel ;
+    DisplayClock *pixelClock ;
+    WiFiUDP ntpUDP;
 
-unsigned long hex2int(char *a, unsigned int len)
-{
-   int i;
-   unsigned long val = 0;
+    // By default 'time.nist.gov' is used with 60 seconds update interval and
+    // no offset
+    NTPClient *timeClient;
 
-   for(i=0;i<len;i++)
-      val += h2int(a[i]) *(1<<(4*(len-1-i)));
+#define useNTP 1
 
-   return val;
-}
-
-
-bool handleSetPixels()
-{
- /*
-  int numArgs = server.args();
-  for (int i=0;i<numArgs;i++)
-  {
-     DBG_OUTPUT_PORT.println("arg: " + server.argName(i) + " val:" +server.arg(i));
-  }
-*/
-  String pixels = server.arg("pixels");
-  //pixels.toUpperCase();
-  int pos=0;
-  // let's pull the hex values out
-  for (int y=0;y<8;y++)
-  {
-    for (int x=0;x<8;x++)
+  public:
+    DisplayHandler()
     {
-       char hr[4];
-       hr[0]=pixels[pos++];
-       hr[1]=pixels[pos++];
-       hr[2]=0;
-       int r = hex2int(hr,2);
-       char hg[4];       
-       hg[0]=pixels[pos++];
-       hg[1]=pixels[pos++];
-       hg[2]=0;
-       int g = hex2int(hg,2);
-       char hb[4];
-       hb[0]=pixels[pos++];
-       hb[1]=pixels[pos++];
-       hb[2]=0;
-       int b = hex2int(hb,2);
-     
-       
-       pixelLive->SetPixel(x,y,r,g,b);
+
+
+      timeClient = new NTPClient(ntpUDP, -28800 + (60 * 60/*DST*/));
+      pixelText = new DisplayPixelsText();
+      pixelGIF = new DisplayPixelsAnimatedGIF();
+      pixelLive = new DisplayPixelsLive();
+      pixelClock = new DisplayClock(timeClient);
+      curPixel = pixelClock;
+
+      strip->Begin();
+      //  strip->Show();
+
     }
-  }
-  
 
-  curPixel = pixelLive;
-  
-  server.send(200, "text/plain", "");
-  return true;  
-}
+    void loop()
+    {
+      //  os_printf("loop: \n");
+      timeClient->update();
+      if (curPixel) curPixel->UpdateAnimation();
+      strip->Show();
+    }
 
-bool handleSetPixel()
-{
-   if (!server.hasArg("x") || !server.hasArg("y") || !server.hasArg("r") || !server.hasArg("g") ||!server.hasArg("b")) {
-    server.send(500, "text/plain", "BAD ARGS");
-    return false;
-  }
-  int x = server.arg("x").toInt();
-  int y = server.arg("y").toInt();
-  int r = server.arg("r").toInt();
-  int g = server.arg("g").toInt();
-  int b = server.arg("b").toInt();
-  pixelLive->SetPixel(x,y,r,g,b);
-  curPixel = pixelLive;
-  
-  server.send(200, "text/plain", "");
-  return true;
-}
+    bool canHandle(AsyncWebServerRequest *request) {
 
-bool handleShowGIF(String path)
-{
-  DBG_OUTPUT_PORT.println("handleShowGIF: " + path);
+      //   os_printf("inside canHandle DisplayHandler %s \n", request->url().c_str());
+
+      if (request->method() == HTTP_GET && request->url() == "/displayclock")
+        return true;
+      else if (request->method() == HTTP_GET && request->url() == "/clearscreen")
+        return true;
+      else if (request->method() == HTTP_GET && request->url() == "/scroll")
+        return true;
+      else if (request->method() == HTTP_GET && request->url().startsWith("/gif/"))
+        return true;
+      if (request->method() == HTTP_POST && request->url() == "/setpixels")
+        return true;
+      return false;
+    }
+
+    void displayClock(AsyncWebServerRequest *request)
+    {
+      curPixel = pixelClock;
+      pixelClock->UpdateAnimation();
+      request->send(200, "text/html", "clock started");
+
+    }
+
+    void handleClearScreen(AsyncWebServerRequest *request)
+    {
+      pixelLive->Clear();
+      curPixel = pixelLive;
+
+      request->send(200, "text/plain", "clear screen");
+      return ;
+    }
+    unsigned char h2int(char c)
+    {
+      if (c >= '0' && c <= '9') {
+        return ((unsigned char)c - '0');
+      }
+      if (c >= 'a' && c <= 'f') {
+        return ((unsigned char)c - 'a' + 10);
+      }
+      if (c >= 'A' && c <= 'F') {
+        return ((unsigned char)c - 'A' + 10);
+      }
+      return (0);
+    }
+
+    unsigned long hex2int(char *a, unsigned int len)
+    {
+      int i;
+      unsigned long val = 0;
+
+      for (i = 0; i < len; i++)
+        val += h2int(a[i]) * (1 << (4 * (len - 1 - i)));
+
+      return val;
+    }
+
+    void setScrollText(AsyncWebServerRequest *request)
+    {
+
+      if (request->hasParam("text") ) {
+        String text = request->getParam("text")->value();
+        if (request->hasParam("color") )
+        {
+          String colorS = request->getParam("color")->value();
+
+          int pos = 0;
+          char hr[4];
+          hr[0] = colorS[pos++];
+          hr[1] = colorS[pos++];
+          hr[2] = 0;
+          int r = hex2int(hr, 2);
+          char hg[4];
+          hg[0] = colorS[pos++];
+          hg[1] = colorS[pos++];
+          hg[2] = 0;
+          int g = hex2int(hg, 2);
+          char hb[4];
+          hb[0] = colorS[pos++];
+          hb[1] = colorS[pos++];
+          hb[2] = 0;
+          int b = hex2int(hb, 2);
+          pixelText->SetColor(RgbColor(r, g, b));
+        }
+
+        pixelText->SetText(text.c_str());
+
+        String output = "Setting scroll to: ";
+        output += text;
+
+        curPixel = pixelText;
+        curPixel->UpdateAnimation();
+        request->send(200, "text/html", output);
+        //request->send(200, "text/html", "set text");
+      }
+      else
+        request->send(500, "text/plain", "BAD ARGS");
+    }
+
+    void handleGif(AsyncWebServerRequest *request)
+    {
+      os_printf("inside handleGif \n");
+      pixelGIF->SetGIF(request->url());
+      curPixel = pixelGIF;
+      request->send(SPIFFS, request->url());
+
+    }
+
+    void handleSetPixels(AsyncWebServerRequest *request)
+    {
 
 
-  pixelGIF->SetGIF(path);
-  curPixel = pixelGIF;
+      /*
+            int params = request->params();
+            for (int i = 0; i < params; i++) {
+              AsyncWebParameter* p = request->getParam(i);
+              if (p->isFile()) {
+                os_printf("_FILE[%s]: %s, size: %u\n", p->name().c_str(), p->value().c_str(), p->size());
+              } else if (p->isPost()) {
+                os_printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
+              } else {
+                os_printf("_GET[%s]: %s\n", p->name().c_str(), p->value().c_str());
+              }
+            }
+      */
+      AsyncWebParameter* p = NULL;
+      if (request->hasParam("pixels", true))
+        p = request->getParam("pixels", true);
+      if (p)
+      {
+        String pixels = p->value();
 
-  server.send(200, "text/plain", "");
-  return true;
-}
+        //pixels.toUpperCase();
+        int pos = 0;
+        // let's pull the hex values out
+        for (int y = 0; y < 8; y++)
+        {
+          for (int x = 0; x < 8; x++)
+          {
+            char hr[4];
+            hr[0] = pixels[pos++];
+            hr[1] = pixels[pos++];
+            hr[2] = 0;
+            int r = hex2int(hr, 2);
+            char hg[4];
+            hg[0] = pixels[pos++];
+            hg[1] = pixels[pos++];
+            hg[2] = 0;
+            int g = hex2int(hg, 2);
+            char hb[4];
+            hb[0] = pixels[pos++];
+            hb[1] = pixels[pos++];
+            hb[2] = 0;
+            int b = hex2int(hb, 2);
 
-bool handleShow(String path) {
-  DBG_OUTPUT_PORT.println("handleShow: " + path);
-  ESP.wdtFeed();
-  File bitmapFile = SPIFFS.open(path, "r");
-  if (!bitmapFile)
-  {
-    Serial.println("File open fail, or not present");
-    // don't do anything more:
-    return false;
-  }
-  ESP.wdtFeed();
-  ESP.wdtFeed();
-  // initialize the image with the file
-//  if (!image.Begin(bitmapFile))
-  {
-    Serial.println("File format fail, not a supported bitmap");
-    // don't do anything more:
-    return false;
-  }
-  server.send(200, "text/plain", "");
-  return true;
+            //os_printf("%d %x %x%x%x\n",x,y,r,g,b);
+            pixelLive->SetPixel(x, y, r, g, b);
+          }
+        }
+        curPixel = pixelLive;
 
-}
+        request->send(200, "text/html", "setpixels");
+
+      }
+    }
+
+    void handleRequest(AsyncWebServerRequest * request) {
+
+      if (request->method() == HTTP_GET && request->url() == "/displayclock")
+        displayClock(request);
+      else if (request->method() == HTTP_GET && request->url() == "/clearscreen")
+        handleClearScreen(request);
+      else if (request->method() == HTTP_GET && request->url() == "/scroll")
+        setScrollText(request);
+      else if (request->method() == HTTP_GET && request->url().startsWith("/gif/"))
+        handleGif(request);
+      else if (request->method() == HTTP_POST && request->url() == "/setpixels")
+        handleSetPixels(request);
+    }
+
+
+
+};
+
+
 
 
 /*
- * If we are autosaving, then we want to increment the next javascript number
- * 
- */
+    The SPIFFS system has a limit to the number of characters in a file name
 
-String numberFromPath(String path)
-{
-  int pos = path.lastIndexOf(".json");
-  int slashpos = path.lastIndexOf("/");
-  String filenumberS = path.substring(slashpos+1,pos);
+    We rewrite the files with a shell script to be a number, or number.gz and
+    then use an index file to map them.
+*/
+class POHandler: public AsyncWebHandler {
+    String  _setContentType(String path) {
+      String _contentType;
+      if (path.endsWith(".html")) _contentType = "text/html";
+      else if (path.endsWith(".htm")) _contentType = "text/html";
+      else if (path.endsWith(".css")) _contentType = "text/css";
+      else if (path.endsWith(".js")) _contentType = "application/javascript";
+      else if (path.endsWith(".png")) _contentType = "image/png";
+      else if (path.endsWith(".gif")) _contentType = "image/gif";
+      else if (path.endsWith(".jpg")) _contentType = "image/jpeg";
+      else if (path.endsWith(".ico")) _contentType = "image/x-icon";
+      else if (path.endsWith(".svg")) _contentType = "image/svg+xml";
+      else if (path.endsWith(".xml")) _contentType = "text/xml";
+      else if (path.endsWith(".pdf")) _contentType = "application/pdf";
+      else if (path.endsWith(".zip")) _contentType = "application/zip";
+      else if (path.endsWith(".gz")) _contentType = "application/x-gzip";
+      else _contentType = "text/plain";
+      return _contentType;
+    }
+    bool canHandle(AsyncWebServerRequest *request) {
+      if (request->method() == HTTP_GET && request->url().startsWith("/p/"))
+        return true;
+      return false;
+    }
+    void handleRequest(AsyncWebServerRequest *request) {
+      String path = request->url();
+      handleRequest(request, path);
+    }
+  public:
+    void handleRequest(AsyncWebServerRequest *request, String path)
+    {
+      if (path.endsWith("/"))
+        path += "index.html";
+      os_printf("handleFileReadPO: path  = %s\n", path.c_str());
+      String short_name = "";
+      int found = 0;
 
-  return filenumberS;
-}
- 
-int findNextFileNumber()
-{
-  int largestnumber=0;
-  Dir dir = SPIFFS.openDir("/piskeldata/");
-  while (dir.next()) {
-    String filenumberS = numberFromPath(dir.fileName());
-    
-    DBG_OUTPUT_PORT.println(filenumberS);
-    int filenumber = filenumberS.toInt();
-    filenumber++;
-    if (filenumber>largestnumber) largestnumber=filenumber;
-  }
-  DBG_OUTPUT_PORT.print("largestnumber: ");
- DBG_OUTPUT_PORT.println(largestnumber);
-  return largestnumber;
-}
+      // read the file from disk that is our index:
+      File file = SPIFFS.open("/pindex.txt", "r");
+      String l_line = "";
+      //open the file here
+      while (file.available() != 0) {
+        //A inconsistent line length may lead to heap memory fragmentation
+        l_line = file.readStringUntil('\n');
+        if (l_line == "") //no blank lines are anticipated
+          break;
+        //
+        int pipePos = l_line.indexOf("|");
+        String long_name = l_line.substring(pipePos + 1);
+        long_name = "/" + long_name;
+        short_name = l_line.substring(0, pipePos);
 
+        //parse l_line here
+        //DBG_OUTPUT_PORT.println("got line: "+l_line);
+        //DBG_OUTPUT_PORT.println("["+long_name+"]["+short_name+"]");
 
-void handlePiskelSave(String id) {
-  DBG_OUTPUT_PORT.println("handlePiskelSave");
+        if (path == long_name)
+        {
+          os_printf("***** FOUND IT ***\n");
+          os_printf("[%s][%s]\n", long_name.c_str(), short_name.c_str());
 
-  int numArgs = server.args();
-  for (int i=0;i<numArgs;i++)
-  {
-     DBG_OUTPUT_PORT.println("arg: " + server.argName(i) + " val:" +server.arg(i));
-  }
+          found = 1;
+          short_name = "/po/" + short_name;
+          break;
+        }
+      }
+      file.close();
 
-  //String result;
-  String filename="";
-  if (id)
-  {
-   filename = "/piskeldata/"+ id+".json";    
-  }
-  else
-  {
-  int filenumber = findNextFileNumber();
-  DBG_OUTPUT_PORT.println("filenumber:"+filenumber);
-   filename = "/piskeldata/"+ String(filenumber)+".json";
-  }
-  DBG_OUTPUT_PORT.println("filename ["+filename+"]");
-  File file = SPIFFS.open(filename,"w");
+      if (found == 0)
+      {
+        request->send(404);
+        return;
+      }
 
-  //String result = String("window.pskl.appEnginePiskelData_ = {\r\n \"piskel\" :");
-  String result = String("{\r\n \"piskel\" :");
-  result += server.arg("framesheet");
-  result += ",\r\n";
-  result +="\"isLoggedIn\": \"true\",";
-  result +="\"fps\":"+server.arg("fps")+",\r\n";
-  result +="\"descriptor\" : {";
-  result +="\"name\": \""+server.arg("name")+"\",";
-  result +="\"description\": \""+server.arg("description")+"\",";
+      os_printf("send: SPIFFS [%s] [blank] [download?]", path.c_str());
 
-  result +="\"first_frame_as_png\": \""+server.arg("first_frame_as_png")+"\",";
-  result +="\"framesheet_as_png\": \""+server.arg("framesheet_as_png")+"\",";
-  
-  
-  result +="\"isPublic\": \"false\"";
-  result +="}\r\n}";
-   DBG_OUTPUT_PORT.println(result);
-  file.write((const uint8_t *)result.c_str(),result.length());
-  if (file)
-    file.close();
-
-  
- server.send(200, "text/plain", "");
-}
-
-
-void handlePiskelLoad(String id)
-{
-  DBG_OUTPUT_PORT.println("handlePiskelLoad");
- 
-  String filename = "/piskeldata/"+ id+".json";
-  DBG_OUTPUT_PORT.println(filename);
-  File  file = SPIFFS.open(filename,"r");
+      request->send(SPIFFS, short_name, _setContentType(path));
+      //request->send(SPIFFS, short_name, String(), request->hasParam("download"));
 
 
-  
-  String l_line = "";
-//open the file here
- server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  server.send(200, "text/html", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
-  server.sendContent(
-    "window.pskl = window.pskl || {};"
-     "window.pskl.appEngineToken_ = false;"
-     "window.pskl.appEnginePiskelData_ ="
-  );
+      return ;
 
- if (!file)
- {
-  // write an empty file
-         
-        server.sendContent(
+
+
+
+    }
+};
+
+
+class PiskelHandler: public AsyncWebHandler {
+
+    POHandler *_thePOHandler;
+
+  public:
+    PiskelHandler(POHandler *thePOHandler)
+    {
+      _thePOHandler = thePOHandler;
+    }
+
+
+
+    bool canHandle(AsyncWebServerRequest *request) {
+      // os_printf("inside canHandle piskel  %s \n", request->url().c_str());
+      if (request->method() == HTTP_GET && request->url().startsWith("/piskel/"))
+        return true;
+      return false;
+    }
+
+
+    /*
+       If we are autosaving, then we want to increment the next javascript number
+
+    */
+
+    String numberFromPath(String path)
+    {
+      int pos = path.lastIndexOf(".json");
+      int slashpos = path.lastIndexOf("/");
+      String filenumberS = path.substring(slashpos + 1, pos);
+
+      return filenumberS;
+    }
+
+    int findNextFileNumber()
+    {
+      int largestnumber = 0;
+      Dir dir = SPIFFS.openDir("/piskeldata/");
+      while (dir.next()) {
+        String filenumberS = numberFromPath(dir.fileName());
+
+        DBG_OUTPUT_PORT.println(filenumberS);
+        int filenumber = filenumberS.toInt();
+        filenumber++;
+        if (filenumber > largestnumber) largestnumber = filenumber;
+      }
+      DBG_OUTPUT_PORT.print("largestnumber: ");
+      DBG_OUTPUT_PORT.println(largestnumber);
+      return largestnumber;
+    }
+
+
+    void handlePiskelSave(AsyncWebServerRequest *request, String id) {
+      DBG_OUTPUT_PORT.println("handlePiskelSave");
+
+
+
+      //String result;
+      String filename = "";
+      if (id)
+      {
+        filename = "/piskeldata/" + id + ".json";
+      }
+      else
+      {
+        int filenumber = findNextFileNumber();
+        DBG_OUTPUT_PORT.println("filenumber:" + filenumber);
+        filename = "/piskeldata/" + String(filenumber) + ".json";
+      }
+      DBG_OUTPUT_PORT.println("filename [" + filename + "]");
+      File file = SPIFFS.open(filename, "w");
+
+      //String result = String("window.pskl.appEnginePiskelData_ = {\r\n \"piskel\" :");
+      String result = String("{\r\n \"piskel\" :");
+      result +=  request->getParam("framesheet")->value();
+      result += ",\r\n";
+      result += "\"isLoggedIn\": \"true\",";
+      result += "\"fps\":" +  request->getParam("fps")->value() + ",\r\n";
+      result += "\"descriptor\" : {";
+      result += "\"name\": \"" + request->getParam("name")->value() + "\",";
+      result += "\"description\": \"" + request->getParam("description")->value() + "\",";
+
+      result += "\"first_frame_as_png\": \"" + request->getParam("first_frame_as_png")->value() + "\",";
+      result += "\"framesheet_as_png\": \"" + request->getParam("framesheet_as_png")->value() + "\",";
+
+
+      result += "\"isPublic\": \"false\"";
+      result += "}\r\n}";
+      DBG_OUTPUT_PORT.println(result);
+      file.write((const uint8_t *)result.c_str(), result.length());
+      if (file)
+        file.close();
+
+      request->send(200, "text/html", "");
+
+    }
+
+
+    void handlePiskelLoad(AsyncWebServerRequest *request, String id)
+    {
+      DBG_OUTPUT_PORT.println("handlePiskelLoad");
+
+      String filename = "/piskeldata/" + id + ".json";
+      DBG_OUTPUT_PORT.println(filename);
+
+      File  file = SPIFFS.open(filename, "r");
+
+
+
+
+      //open the file here
+
+      AsyncResponseStream *response = request->beginResponseStream("application/javascript");
+      response->print(  "window.pskl = window.pskl || {};"
+                        "window.pskl.appEngineToken_ = false;"
+                        "window.pskl.appEnginePiskelData_ =");
+
+      if (!file)
+      {
+        // write an empty file
+
+        response->print(
           "{"
           "piskel : null,"
-        "isLoggedIn : true,"
-        "fps : 4,"
-        "descriptor : {"
+          "isLoggedIn : true,"
+          "fps : 4,"
+          "descriptor : {"
           "name : \"New piskel\","
           "description : \"\","
           "isPublic : true"
-        "}"
-         "}"
+          "}"
+          "}"
         );
-     
- }
- else
- {
-  while (file.available() != 0) {  
-         
-    l_line = file.readStringUntil('\n'); 
-    server.sendContent(l_line);
-  }
- }
-  if (file) file.close();
-  server.sendContent(
-    ";"
-  );
-  server.client().stop(); 
-}
+
+      }
+      else
+      {
+
+        char *buf = (char*)malloc(file.size() + 1);
+        if (buf) {
+          file.read((uint8_t *)buf, file.size());
+          buf[file.size()] = '\0';
+        }
+        file.close();
+        response->print(buf);
+        free(buf);
 
 
 
+      }
 
-/*
- * The SPIFFS system has a limit to the number of characters in a file name
- * 
- * We rewrite the files with a shell script to be a number, or number.gz and 
- * then use an index file to map them.
- */
+      response->print(
+        ";"
+      );
 
-bool handleFileReadPO(String path) {
-String short_name = "";
-int found=0;
-
- if (path.endsWith("/")) path += "index.html";
- 
-// read the file from disk that is our index:
-File file = SPIFFS.open("/pindex.txt", "r");
-String l_line = "";
-//open the file here
-while (file.available() != 0) {  
-    //A inconsistent line length may lead to heap memory fragmentation        
-    l_line = file.readStringUntil('\n');        
-    if (l_line == "") //no blank lines are anticipated        
-      break;      
-    //  
-    int pipePos = l_line.indexOf("|");
-    String long_name = l_line.substring(pipePos+1);
-    long_name="/"+long_name;
-    short_name = l_line.substring(0, pipePos);
-    
-   //parse l_line here
-   //DBG_OUTPUT_PORT.println("got line: "+l_line);
-   //DBG_OUTPUT_PORT.println("["+long_name+"]["+short_name+"]");
-
-   if (path == long_name)
-   {
-      DBG_OUTPUT_PORT.println("***** FOUND IT ***");
-      DBG_OUTPUT_PORT.println("["+long_name+"]["+short_name+"]");
-      found = 1;
-      short_name="/po/"+short_name;
-      break;
-   }
-}
-file.close();
-
-if (found==0) return false;
+      request->send(response);
 
 
-  String contentType = getContentType(path);
-  String pathWithGz = short_name + ".gz";
-  if (SPIFFS.exists(pathWithGz) || SPIFFS.exists(short_name)) {
-    if (SPIFFS.exists(pathWithGz))
-      short_name += ".gz";
-    File file = SPIFFS.open(short_name, "r");
-    size_t sent = server.streamFile(file, contentType);
-    file.close();
-    return true;
-  }
-  return false;
-   
+    }
 
-
-}
-
-
-void handleFilePiskelJSONIndex()
-{
-  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  server.sendHeader("Pragma", "no-cache");
-  server.sendHeader("Expires", "-1");
-  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  server.send(200, "text/json", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
-  Dir dir = SPIFFS.openDir("/piskeldata/");
-  server.sendContent("[");
-  int first=1;
-  while (dir.next()) {
-    if (first)
-      first=0;
-    else 
-      server.sendContent(",");
-     
-    File file = SPIFFS.open(dir.fileName(), "r");
-    String number = numberFromPath(dir.fileName());
-
-    
-    server.sendContent("{\""+number+"\":");
-    
-    server.client().write(file, HTTP_DOWNLOAD_UNIT_SIZE);
-    server.sendContent("}");
-    file.close();
-      
-  }
-  server.sendContent("]");
-  server.client().stop(); // Stop is needed because we sent no content length
-
-}
-/*
- *  The piskel code expects url's to look like:
- *  
- *  /piskel/<ID>/index.html
- *  
- *  we are going to pull out the ID and then call the PO routine to handle the actual files
- *  
- */
-
- 
-bool handleFileReadPiskel(String path)
-{
-
-  if (path=="/piskel/")
-  {
-     // we should print out our gallery here
-     handleFileRead("/gallery.html");
-     return true;
-  }
-  else if (path=="/piskel/json")
-  {
-     handleFilePiskelJSONIndex();
-     return true;
-  }
-
-  
-   /* move forward /piskel/ characters, and find the next / */
-   int piskelLen = 8;
-   int pos = path.indexOf("/",piskelLen);
-   String filenumberS = path.substring(piskelLen,pos);
-   DBG_OUTPUT_PORT.println(filenumberS);
-
-   String newpath = path.substring(pos+1);
-   newpath = String("/p/")+newpath;
-   DBG_OUTPUT_PORT.println(newpath);
-
-   // if we have the data js file, then we return that, otherwise we return the static files
-   if (newpath=="/p/load")
-   {
-      handlePiskelLoad(filenumberS);
-      return true;
-   }
-   else if (newpath=="/p/save")
-   {
-      handlePiskelSave(filenumberS);
-       return true;
-   }
-   else
-       return handleFileReadPO(newpath);
-   
-   return true;
-}
-
-/*
- * All URLs that haven't been defined in the setup end up going through here
- * 
- * return true if we took care of it, or false, and in setup there is some code to send a 404
- * 
- * We need a path handler in here, to redirect chunks of paths like the /p/ 
- * 
- */
-
-bool handleFileRead(String path) {
-  DBG_OUTPUT_PORT.println("handleFileRead: " + path);
-
-  /* Handle the p subdirectory - which looks up files by an index file */
-  if (path.startsWith("/p/")) return handleFileReadPO(path);
-
-  if (path.startsWith("/piskel/")) return handleFileReadPiskel(path);
-  
-  if (path.endsWith("/")) path += "index.htm";
-  String contentType = getContentType(path);
-  if (contentType == "image/x-windows-bmp")
-    return handleShow(path);
-  else if (contentType == "image/gif")
-    return handleShowGIF(path);
-  String pathWithGz = path + ".gz";
-  if (SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)) {
-    if (SPIFFS.exists(pathWithGz))
-      path += ".gz";
-    File file = SPIFFS.open(path, "r");
-    size_t sent = server.streamFile(file, contentType);
-    file.close();
-    return true;
-  }
-  return false;
-}
-
-void handleFileUpload() {
-  if (server.uri() != "/edit") return;
-  HTTPUpload& upload = server.upload();
-  if (upload.status == UPLOAD_FILE_START) {
-    String filename = upload.filename;
-    if (!filename.startsWith("/")) filename = "/" + filename;
-    DBG_OUTPUT_PORT.print("handleFileUpload Name: "); DBG_OUTPUT_PORT.println(filename);
-    fsUploadFile = SPIFFS.open(filename, "w");
-    filename = String();
-  } else if (upload.status == UPLOAD_FILE_WRITE) {
-    //DBG_OUTPUT_PORT.print("handleFileUpload Data: "); DBG_OUTPUT_PORT.println(upload.currentSize);
-    if (fsUploadFile)
-      fsUploadFile.write(upload.buf, upload.currentSize);
-  } else if (upload.status == UPLOAD_FILE_END) {
-    if (fsUploadFile)
-      fsUploadFile.close();
-    DBG_OUTPUT_PORT.print("handleFileUpload Size: "); DBG_OUTPUT_PORT.println(upload.totalSize);
-  }
-}
-void handlePiskelFileUpload() {
-  DBG_OUTPUT_PORT.println("Piskel Upload");
-HTTPUpload& upload = server.upload();
-DBG_OUTPUT_PORT.println(upload.status);
-DBG_OUTPUT_PORT.println(upload.filename);
-DBG_OUTPUT_PORT.println(upload.type);
-DBG_OUTPUT_PORT.println(upload.totalSize);
-DBG_OUTPUT_PORT.println(upload.currentSize);
-
- 
-  int numArgs = server.args();
-  for (int i=0;i<numArgs;i++)
-  {
-     DBG_OUTPUT_PORT.println("arg: " + server.argName(i) + " val:" +server.arg(i));
-  }
-  
- server.send(200, "text/plain", "");
-}
-
-
-void handleFileDelete() {
-  if (server.args() == 0) return server.send(500, "text/plain", "BAD ARGS");
-  String path = server.arg(0);
-  DBG_OUTPUT_PORT.println("handleFileDelete: " + path);
-  if (path == "/")
-    return server.send(500, "text/plain", "BAD PATH");
-  if (!SPIFFS.exists(path))
-    return server.send(404, "text/plain", "FileNotFound");
-  SPIFFS.remove(path);
-  server.send(200, "text/plain", "");
-  path = String();
-}
-
-void handleFileCreate() {
-  if (server.args() == 0)
-    return server.send(500, "text/plain", "BAD ARGS");
-  String path = server.arg(0);
-  DBG_OUTPUT_PORT.println("handleFileCreate: " + path);
-  if (path == "/")
-    return server.send(500, "text/plain", "BAD PATH");
-  if (SPIFFS.exists(path))
-    return server.send(500, "text/plain", "FILE EXISTS");
-  File file = SPIFFS.open(path, "w");
-  if (file)
-    file.close();
-  else
-    return server.send(500, "text/plain", "CREATE FAILED");
-  server.send(200, "text/plain", "");
-  path = String();
-}
-
-
-void showImageList()
-{
-  Dir dir = SPIFFS.openDir("/");
-
-
-  String output = "";
-  while (dir.next()) {
-    File entry = dir.openFile("r");
-
-    String contentType = getContentType(entry.name());
-    if (contentType == "image/x-windows-bmp")
+    void handleFilePiskelJSONIndex(AsyncWebServerRequest *request)
     {
-      output += String("<a href=\"") + String(entry.name()) + "\">" + String(entry.name()) + String("</a><br/>");
+      AsyncResponseStream *response = request->beginResponseStream("application/javascript");
+
+      response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      response->addHeader("Pragma", "no-cache");
+      response->addHeader("Expires", "-1");
+
+
+      Dir dir = SPIFFS.openDir("/piskeldata/");
+      response->print( "[");
+      int first = 1;
+      while (dir.next()) {
+        if (first)
+          first = 0;
+        else
+          response->print( ",");
+
+
+        String number = numberFromPath(dir.fileName());
+        File file = SPIFFS.open(dir.fileName(), "r");
+
+        response->print( "{\"" + number + "\":");
+        //  response->print(dir.fileName());
+        char *buf = (char*)malloc(file.size() + 1);
+        if (buf) {
+          file.read((uint8_t *)buf, file.size());
+          buf[file.size()] = '\0';
+        }
+        file.close();
+        response->print(buf);
+        free(buf);
+        response->print("}");
+
+      }
+      response->print("]");
+      request->send(response);
+
     }
-    entry.close();
+    /*
+        The piskel code expects url's to look like:
+
+        /piskel/<ID>/index.html
+
+        we are going to pull out the ID and then call the PO routine to handle the actual files
+
+    */
+
+
+    void handleFileReadPiskel(AsyncWebServerRequest *request, String path)
+    {
+
+      if (path == "/piskel/")
+      {
+        // we should print out our gallery here
+        request->send(SPIFFS, "/gallery.html");
+
+        return ;
+      }
+      else if (path == "/piskel/json")
+      {
+        handleFilePiskelJSONIndex(request);
+        return ;
+      }
+
+
+      /* move forward /piskel/ characters, and find the next / */
+      int piskelLen = 8;
+      int pos = path.indexOf("/", piskelLen);
+      String filenumberS = path.substring(piskelLen, pos);
+      DBG_OUTPUT_PORT.println(filenumberS);
+
+      String newpath = path.substring(pos + 1);
+      newpath = String("/p/") + newpath;
+      DBG_OUTPUT_PORT.println(newpath);
+
+      // if we have the data js file, then we return that, otherwise we return the static files
+      if (newpath == "/p/load")
+      {
+        handlePiskelLoad(request, filenumberS);
+        return ;
+      }
+      else if (newpath == "/p/save")
+      {
+        handlePiskelSave(request, filenumberS);
+        return ;
+      }
+      else
+        _thePOHandler->handleRequest(request, newpath);
+
+
+      return ;
+    }
+
+
+    void handleRequest(AsyncWebServerRequest *request) {
+
+      if (request->method() == HTTP_GET && request->url().startsWith("/piskel/"))
+        handleFileReadPiskel(request, request->url());
+    }
+
+
+};
+
+
+
+
+// WEB HANDLER IMPLEMENTATION
+class SPIFFSEditor: public AsyncWebHandler {
+  private:
+    String _username;
+    String _password;
+    bool _uploadAuthenticated;
+  public:
+    SPIFFSEditor(String username = String(), String password = String()): _username(username), _password(password), _uploadAuthenticated(false) {}
+    bool canHandle(AsyncWebServerRequest *request) {
+      if (request->method() == HTTP_GET && request->url() == "/edit" && (SPIFFS.exists("/edit.htm") || SPIFFS.exists("/edit.htm.gz")))
+        return true;
+      else if (request->method() == HTTP_GET && request->url() == "/list")
+        return true;
+      else if (request->method() == HTTP_GET && (request->url().endsWith("/") || SPIFFS.exists(request->url()) || (!request->hasParam("download") && SPIFFS.exists(request->url() + ".gz"))))
+        return true;
+      else if (request->method() == HTTP_POST && request->url() == "/edit")
+        return true;
+      else if (request->method() == HTTP_DELETE && request->url() == "/edit")
+        return true;
+      else if (request->method() == HTTP_PUT && request->url() == "/edit")
+        return true;
+      return false;
+    }
+
+
+    void handleRequest(AsyncWebServerRequest *request) {
+      if (_username.length() && (request->method() != HTTP_GET || request->url() == "/edit" || request->url() == "/list") && !request->authenticate(_username.c_str(), _password.c_str()))
+        return request->requestAuthentication();
+
+      if (request->method() == HTTP_GET && request->url() == "/edit") {
+        request->send(SPIFFS, "/edit.htm");
+      } else if (request->method() == HTTP_GET && request->url() == "/list") {
+        if (request->hasParam("dir")) {
+          String path = request->getParam("dir")->value();
+          Dir dir = SPIFFS.openDir(path);
+          path = String();
+          String output = "[";
+          while (dir.next()) {
+            File entry = dir.openFile("r");
+            if (output != "[") output += ',';
+            bool isDir = false;
+            output += "{\"type\":\"";
+            output += (isDir) ? "dir" : "file";
+            output += "\",\"name\":\"";
+            output += String(entry.name()).substring(1);
+            output += "\"}";
+            entry.close();
+          }
+          output += "]";
+          request->send(200, "text/json", output);
+          output = String();
+        }
+        else
+          request->send(400);
+      } else if (request->method() == HTTP_GET) {
+        String path = request->url();
+        if (path.endsWith("/"))
+          path += "index.htm";
+
+        request->send(SPIFFS, path, String(), request->hasParam("download"));
+      } else if (request->method() == HTTP_DELETE) {
+        if (request->hasParam("path", true)) {
+          ESP.wdtDisable(); SPIFFS.remove(request->getParam("path", true)->value()); ESP.wdtEnable(10);
+          request->send(200, "", "DELETE: " + request->getParam("path", true)->value());
+        } else
+          request->send(404);
+      } else if (request->method() == HTTP_POST) {
+        if (request->hasParam("data", true, true) && SPIFFS.exists(request->getParam("data", true, true)->value()))
+          request->send(200, "", "UPLOADED: " + request->getParam("data", true, true)->value());
+        else
+          request->send(500);
+      } else if (request->method() == HTTP_PUT) {
+        if (request->hasParam("path", true)) {
+          String filename = request->getParam("path", true)->value();
+          if (SPIFFS.exists(filename)) {
+            request->send(200);
+          } else {
+            File f = SPIFFS.open(filename, "w");
+            if (f) {
+              f.write(0x00);
+              f.close();
+              request->send(200, "", "CREATE: " + filename);
+            } else {
+              request->send(500);
+            }
+          }
+        } else
+          request->send(400);
+      }
+    }
+
+    void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+      if (!index) {
+        if (!_username.length() || request->authenticate(_username.c_str(), _password.c_str()))
+          _uploadAuthenticated = true;
+        request->_tempFile = SPIFFS.open(filename, "w");
+      }
+      if (_uploadAuthenticated && request->_tempFile && len) {
+        ESP.wdtDisable(); request->_tempFile.write(data, len); ESP.wdtEnable(10);
+      }
+      if (_uploadAuthenticated && final)
+        if (request->_tempFile) request->_tempFile.close();
+    }
+};
+
+
+// SKETCH BEGIN
+AsyncWebServer server(80);
+
+AsyncWebSocket ws("/ws");
+
+void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len) {
+  if (type == WS_EVT_CONNECT) {
+    os_printf("ws[%s][%u] connect\n", server->url(), client->id());
+    client->printf("Hello Client %u :)", client->id());
+    client->ping();
+  } else if (type == WS_EVT_DISCONNECT) {
+    os_printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
+  } else if (type == WS_EVT_ERROR) {
+    os_printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
+  } else if (type == WS_EVT_PONG) {
+    os_printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len) ? (char*)data : "");
+  } else if (type == WS_EVT_DATA) {
+    AwsFrameInfo * info = (AwsFrameInfo*)arg;
+    String msg = "";
+    if (info->final && info->index == 0 && info->len == len) {
+      //the whole message is in a single frame and we got all of it's data
+      os_printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
+
+      if (info->opcode == WS_TEXT) {
+        for (size_t i = 0; i < info->len; i++) {
+          msg += (char) data[i];
+        }
+      } else {
+        char buff[3];
+        for (size_t i = 0; i < info->len; i++) {
+          sprintf(buff, "%02x ", (uint8_t) data[i]);
+          msg += buff ;
+        }
+      }
+      os_printf("%s\n", msg.c_str());
+
+      if (info->opcode == WS_TEXT)
+        client->text("I got your text message");
+      else
+        client->binary("I got your binary message");
+    } else {
+      //message is comprised of multiple frames or the frame is split into multiple packets
+      if (info->index == 0) {
+        if (info->num == 0)
+          os_printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT) ? "text" : "binary");
+        os_printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
+      }
+
+      os_printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT) ? "text" : "binary", info->index, info->index + len);
+
+      if (info->opcode == WS_TEXT) {
+        for (size_t i = 0; i < info->len; i++) {
+          msg += (char) data[i];
+        }
+      } else {
+        char buff[3];
+        for (size_t i = 0; i < info->len; i++) {
+          sprintf(buff, "%02x ", (uint8_t) data[i]);
+          msg += buff ;
+        }
+      }
+      os_printf("%s\n", msg.c_str());
+
+      if ((info->index + len) == info->len) {
+        os_printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
+        if (info->final) {
+          os_printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT) ? "text" : "binary");
+          if (info->message_opcode == WS_TEXT)
+            client->text("I got your text message");
+          else
+            client->binary("I got your binary message");
+        }
+      }
+    }
   }
-  server.send(200, "text/html", output);
 }
 
-void setScrollText()
-{
-  if (!server.hasArg("text")) {
-    server.send(500, "text/plain", "BAD ARGS");
-    return;
-  }
-  String colorS = server.arg("color");
-  if (colorS)
-  {
-    int pos=0;
-    char hr[4];
-       hr[0]=colorS[pos++];
-       hr[1]=colorS[pos++];
-       hr[2]=0;
-       int r = hex2int(hr,2);
-       char hg[4];       
-       hg[0]=colorS[pos++];
-       hg[1]=colorS[pos++];
-       hg[2]=0;
-       int g = hex2int(hg,2);
-       char hb[4];
-       hb[0]=colorS[pos++];
-       hb[1]=colorS[pos++];
-       hb[2]=0;
-       int b = hex2int(hb,2);
-    pixelText->SetColor(RgbColor(r,g,b));
-  }
 
-  pixelText->SetText(server.arg("text"));
+const char* ssid = "Alan";
+const char* password = "***REMOVED***";
+const char* http_username = "admin";
+const char* http_password = "admin";
 
-  String output = "Setting scroll to: ";
-  output += server.arg("text");
 
-  curPixel = pixelText;
+extern "C" void system_set_os_print(uint8 onoff);
+extern "C" void ets_install_putc1(void* routine);
 
-  server.send(200, "text/html", output);
-
+//Use the internal hardware buffer
+static void _u0_putc(char c) {
+  while (((U0S >> USTXC) & 0x7F) == 0x7F);
+  U0F = c;
 }
 
-void displayClock()
-{
-  curPixel = pixelClock;
-  pixelClock->UpdateAnimation();
-  server.send(200, "text/html", "clock started");
-
+void initSerial() {
+  Serial.begin(115200);
+  ets_install_putc1((void *) &_u0_putc);
+  system_set_os_print(1);
 }
+DisplayHandler *theDisplay = NULL;
 
-
-void handleFileList() {
-  if (!server.hasArg("dir")) {
-    server.send(500, "text/plain", "BAD ARGS");
-    return;
-  }
-
-  String path = server.arg("dir");
-  DBG_OUTPUT_PORT.println("handleFileList: " + path);
-  Dir dir = SPIFFS.openDir(path);
-  path = String();
-
-  String output = "[";
-  while (dir.next()) {
-    File entry = dir.openFile("r");
-    if (output != "[") output += ',';
-    bool isDir = false;
-    output += "{\"type\":\"";
-    output += (isDir) ? "dir" : "file";
-    output += "\",\"name\":\"";
-    output += String(entry.name()).substring(1);
-    output += "\"}";
-    entry.close();
-  }
-
-  output += "]";
-  server.send(200, "text/json", output);
-}
-
-/*
-void configModeCallback (WiFiManager *myWiFiManager) {
-  Serial.println("Entered config mode");
-  Serial.println(WiFi.softAPIP());
-  //if you used auto generated SSID, print it
-  Serial.println(myWiFiManager->getConfigPortalSSID());
-}
-*/
-
-void setup(void) {
-
-  DBG_OUTPUT_PORT.begin(115200);
-  DBG_OUTPUT_PORT.print("\n");
-  DBG_OUTPUT_PORT.setDebugOutput(true);
-
-  WiFi.disconnect();
-  
-  strip->Begin();
-  strip->Show();
-
+void setup() {
+  initSerial();
   SPIFFS.begin();
-  {
-    Dir dir = SPIFFS.openDir("/");
-    while (dir.next()) {
-      String fileName = dir.fileName();
-      size_t fileSize = dir.fileSize();
-      DBG_OUTPUT_PORT.printf("FS File: %s, size: %s\n", fileName.c_str(), formatBytes(fileSize).c_str());
-    }
-    DBG_OUTPUT_PORT.printf("\n");
-  }
-
-/*
-  //WiFiManager
-  //Local intialization. Once its business is done, there is no need to keep it around
-  WiFiManager wifiManager;
-  //reset settings - for testing
-  //wifiManager.resetSettings();
-
-  //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
-  wifiManager.setAPCallback(configModeCallback);
-
-  //fetches ssid and pass and tries to connect
-  //if it does not connect it starts an access point with the specified name
-  //here  "AutoConnectAP"
-  //and goes into a blocking loop awaiting configuration
-  if(!wifiManager.autoConnect()) {
-    Serial.println("failed to connect and hit timeout");
-    //reset and try again, or maybe put it to deep sleep
-    ESP.reset();
+  theDisplay = new DisplayHandler();
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    Serial.printf("STA: Failed!\n");
+    WiFi.disconnect(false);
     delay(1000);
-  } 
-
-*/
-
-  //if you get here you have connected to the WiFi
-  Serial.println("connected...yeey :)");
-
-
-
-  //SERVER INIT
-  setupCaptive(&server);
-
-  server.on("/setpixels",HTTP_POST,handleSetPixels);
-  server.on("/displayclock",HTTP_GET,displayClock);
-  server.on("/clearscreen",HTTP_GET,handleClearScreen);
-  server.on("/setpixel", HTTP_GET, handleSetPixel);
-  server.on("/scroll", HTTP_GET, setScrollText);
-  server.on("/image", HTTP_GET, showImageList);
-  //list directory
-  server.on("/list", HTTP_GET, handleFileList);
-  //load editor
-  server.on("/edit", HTTP_GET, []() {
-    if (!handleFileRead("/edit.htm")) server.send(404, "text/plain", "FileNotFound");
-  });
-  //create file
-  server.on("/edit", HTTP_PUT, handleFileCreate);
-  //delete file
-  server.on("/edit", HTTP_DELETE, handleFileDelete);
-  //first callback is called after the request has ended with all parsed arguments
-  //second callback handles file uploads at that location
-  server.on("/edit", HTTP_POST, []() {
-    server.send(200, "text/plain", "");
-  }, handleFileUpload);
-
-  server.on("/piskelupload",HTTP_POST,  handlePiskelFileUpload, handlePiskelFileUpload);
- 
-  //called when the url is not defined here
-  //use it to load content from SPIFFS
-  server.onNotFound([]() {
-     if (captivePortal()) { // If caprive portal redirect instead of displaying the page.
-    return;
+    WiFi.begin(ssid, password);
   }
-  
-    if (!handleFileRead(server.uri()))
-      server.send(404, "text/plain", "FileNotFound");
+  ArduinoOTA.begin();
+  //Serial.printf("format start\n"); SPIFFS.format();  Serial.printf("format end\n");
+
+  ws.onEvent(onEvent);
+  server.addHandler(&ws);
+
+
+  POHandler *thePOHandler = new POHandler();
+  PiskelHandler *thePiskelHandler = new PiskelHandler(thePOHandler);
+  server.on("/heap", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(200, "text/plain", String(ESP.getFreeHeap()));
+  });
+
+  server.addHandler(thePOHandler);
+  server.addHandler(thePiskelHandler);
+  server.addHandler(theDisplay);
+
+  server.serveStatic("/fs", SPIFFS, "/");
+  server.addHandler(new SPIFFSEditor(http_username, http_password));
+  server.onNotFound([](AsyncWebServerRequest * request) {
+    os_printf("NOT_FOUND: ");
+    if (request->method() == HTTP_GET)
+      os_printf("GET");
+    else if (request->method() == HTTP_POST)
+      os_printf("POST");
+    else if (request->method() == HTTP_DELETE)
+      os_printf("DELETE");
+    else if (request->method() == HTTP_PUT)
+      os_printf("PUT");
+    else if (request->method() == HTTP_PATCH)
+      os_printf("PATCH");
+    else if (request->method() == HTTP_HEAD)
+      os_printf("HEAD");
+    else if (request->method() == HTTP_OPTIONS)
+      os_printf("OPTIONS");
+    else
+      os_printf("UNKNOWN");
+    os_printf(" http://%s%s\n", request->host().c_str(), request->url().c_str());
+
+    if (request->contentLength()) {
+      os_printf("_CONTENT_TYPE: %s\n", request->contentType().c_str());
+      os_printf("_CONTENT_LENGTH: %u\n", request->contentLength());
+    }
+
+    int headers = request->headers();
+    int i;
+    for (i = 0; i < headers; i++) {
+      AsyncWebHeader* h = request->getHeader(i);
+      os_printf("_HEADER[%s]: %s\n", h->name().c_str(), h->value().c_str());
+    }
+
+    int params = request->params();
+    for (i = 0; i < params; i++) {
+      AsyncWebParameter* p = request->getParam(i);
+      if (p->isFile()) {
+        os_printf("_FILE[%s]: %s, size: %u\n", p->name().c_str(), p->value().c_str(), p->size());
+      } else if (p->isPost()) {
+        os_printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
+      } else {
+        os_printf("_GET[%s]: %s\n", p->name().c_str(), p->value().c_str());
+      }
+    }
+
+    request->send(404);
+  });
+  server.onFileUpload([](AsyncWebServerRequest * request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+    if (!index)
+      os_printf("UploadStart: %s\n", filename.c_str());
+    os_printf("%s", (const char*)data);
+    if (final)
+      os_printf("UploadEnd: %s (%u)\n", filename.c_str(), index + len);
+  });
+  server.onRequestBody([](AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total) {
+    if (!index)
+      os_printf("BodyStart: %u\n", total);
+    os_printf("%s", (const char*)data);
+    if (index + len == total)
+      os_printf("BodyEnd: %u\n", total);
   });
 
   //get heap status, analog input value and all GPIO statuses in one json call
-  server.on("/all", HTTP_GET, []() {
+  server.on("/all", HTTP_GET, [](AsyncWebServerRequest * request) {
+
+
     String json = "{";
     json += "\"heap\":" + String(ESP.getFreeHeap());
     json += ", \"analog\":" + String(analogRead(A0));
     json += ", \"gpio\":" + String((uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16)));
     json += "}";
-    server.send(200, "text/json", json);
+    request->send(200, "text/json", json);
     json = String();
   });
+
   server.begin();
-  DBG_OUTPUT_PORT.println("HTTP server started");
-    timeClient.begin();
- 
 }
 
-int oldheap=0;
+void loop() {
 
-void loop(void) {
-  loopCaptive(); 
-  server.handleClient();
-  MDNS.update();
-  timeClient.update();
- 
-  int heap = ESP.getFreeHeap();
-  if (heap!=oldheap)
-  {
-    
-    DBG_OUTPUT_PORT.println("Heap change:");
-        DBG_OUTPUT_PORT.print(oldheap);
-    DBG_OUTPUT_PORT.print (" ");
-    DBG_OUTPUT_PORT.println(heap);
-    oldheap=heap;
-
-  }
-
-  if (curPixel) curPixel->UpdateAnimation();
-  //image.Blt(*strip,0,0,0,0,8,8,ourLayoutMapCallback);
-
-
-  //strip.SetPixelColor(mosaic.Map(0, 0), red);
-  //strip.Show();
-  strip->Show();
-
+  ArduinoOTA.handle();
+  theDisplay->loop();
 }
-
-
-
