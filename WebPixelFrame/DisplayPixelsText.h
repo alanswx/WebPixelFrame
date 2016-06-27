@@ -28,8 +28,9 @@ class DisplayPixelsText : public DisplayPixels {
       setupStartMillis = millis();
       textStartX = 8;
     }
-    void SetText(String text) {
-      _text = text;
+    void SetText(const char *text) {
+      //_text = text;
+      strcpy(_text,text);
       textStartX = 8;
     }
     void SetColor(RgbColor newColor)
@@ -42,11 +43,12 @@ class DisplayPixelsText : public DisplayPixels {
 
   private:
     int drawChar(uint8_t x, uint8_t y, uint8_t c, RgbColor color, uint8_t mode);
-    int drawString(uint8_t x, uint8_t y, String text, RgbColor color);
+    int drawString(uint8_t x, uint8_t y, const char * text, RgbColor color);
     uint8_t setFontType(uint8_t type);
     void pixel(uint8_t x, uint8_t y,  RgbColor color, uint8_t mode);
 
-    String _text;
+    char _text[256];
+//    String _text;
 
     RgbColor black;
     RgbColor textColor;
@@ -69,7 +71,7 @@ class DisplayClock : public DisplayPixelsText
    virtual void NewAnimation(void)
    {
       String newTime=timeClient->getFormattedTime();
-      SetText(newTime);
+      SetText(newTime.c_str());
    }
 
    NTPClient *timeClient;

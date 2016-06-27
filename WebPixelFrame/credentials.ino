@@ -1,3 +1,4 @@
+#if 0
 /** Load WLAN credentials from EEPROM */
 void loadCredentials() {
   EEPROM.begin(512);
@@ -25,3 +26,4 @@ void saveCredentials() {
   EEPROM.commit();
   EEPROM.end();
 }
+#endif

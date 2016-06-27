@@ -1,6 +1,6 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h> 
-#include <ESP8266WebServer.h>
+//#include <ESP8266WebServer.h>
 #include <DNSServer.h>
 #include <ESP8266mDNS.h>
 #include <EEPROM.h>
@@ -15,7 +15,7 @@ boolean isIp(String str);
 String toStringIp(IPAddress ip);
 void loadCredentials();
 void saveCredentials();
-void setupCaptive(ESP8266WebServer *server);
+//void setupCaptive(ESP8266WebServer *server);
 void loopCaptive();
 
 
