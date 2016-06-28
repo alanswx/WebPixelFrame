@@ -1,3 +1,11 @@
+<script>
+var anim_img = [];
+</script>
+	<script type="text/javascript" src="/piskel-utils.js"></script>
+	<script type="text/javascript" src="/piskel-image-scale.js"></script>
+	<script type="text/javascript" src="/piskel-animated-preview.js"></script>
+<link rel="stylesheet" type="text/css" href="/piskel-app.css"/>
+<link rel="stylesheet" type="text/css" href="/piskel-app-previewcard.css"/>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
 <table id='gallery' border="1"></table>  
 <div id='new' ></div>  
@@ -19,13 +27,22 @@ $(result).each(function(index, element){
       var name = element[id]['descriptor']['name'];
       var desc= element[id]['descriptor']['description'];
       var first_frame= element[id]['descriptor']['first_frame_as_png'];
-      console.log(name);
-      console.log(first_frame);
+      var framesheet= element[id]['descriptor']['framesheet_as_png'];
+      anim_img['key'+(id-1)]=framesheet;
+      //console.log(name);
+      //console.log(first_frame);
 
-     $('#gallery').append('<tr><td> '+name+'<br/>'+desc+' </td> <td> <a href="/piskel/'+id+'/"><img src="'+first_frame+'" style="display:block; width:192px; height:192px;" ></a></td></tr>');
-})
+     //$('#gallery').append('<tr><td> '+name+'<br/>'+desc+' </td> <td> <a href="/piskel/'+id+'/"><img src="'+first_frame+'" style="display:block; width:192px; height:192px;" ></a></td></tr>');
+     $('#gallery').append(' <div class="card-container card-container-private"> <div class="card-preview-container"> <a class="card-preview-link" href="/piskel/'+id+'/"> <img id="'+id+'" style="display:block; width:192px; height:192px;" width="192" src="'+first_frame+'" onload="window.pskl.website.createAnimatedPreview('+id+', 4, event, false)"/>');
+      $('#gallery').append('<div class="card-preview-actions"><a class="card-preview-action right" href="/p/'+id+'/delete?callback_url=/piskel/">Delete</a> <a class="card-preview-action right bold important" href="/p/'+id+'/">Edit</a> </div> </div> <div class="card-info-container"> <h4 class="card-info-name" title="Edit this sprite"><a href="/p/'+id+'/">'+name+'</a></h4>');
+      $('#gallery').append('</a> </div></div>');
+
+});
      lastnum = lastnum+1;
      $('#new').append('<a href="/piskel/'+lastnum+'/">New</a>');
     }});
 
 </script>
+
+
+

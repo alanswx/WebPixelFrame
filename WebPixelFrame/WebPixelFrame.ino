@@ -35,7 +35,241 @@ void updateScreenCallbackS()
 
 }
 
+#if 0
+class CaptivePortal: public AsyncWebHandler {
+  public:
+    void loop()
+    {
+      //  os_printf("loop: \n");
 
+    }
+    CaptivePortal()
+    {
+
+    }
+    bool canHandle(AsyncWebServerRequest *request) {
+
+      //   os_printf("inside canHandle DisplayHandler %s \n", request->url().c_str());
+
+      if (request->method() == HTTP_GET && request->url() == "/")
+        return true;
+      else if (request->method() == HTTP_GET && request->url() == "/wifijson")
+        return true;
+      else if (request->method() == HTTP_GET && request->url() == "/wifisave")
+        return true;
+      else if (request->method() == HTTP_GET && request->url() == "/wifi")
+        return true;
+      if (request->method() == HTTP_POST && request->url() == "/fwlink")
+        return true;
+      return false;
+    }
+
+
+    /** Handle root or redirect to captive portal */
+    void handleRoot(AsyncWebServerRequest *request) {
+      if (captivePortal(request)) { // If caprive portal redirect instead of displaying the page.
+        return;
+      }
+
+      AsyncResponseStream *response = request->beginResponseStream("application/javascript");
+
+
+
+      server->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      server->sendHeader("Pragma", "no-cache");
+      server->sendHeader("Expires", "-1");
+      server->setContentLength(CONTENT_LENGTH_UNKNOWN);
+      server->send(200, "text/html", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
+      server->sendContent(
+        "<html><head></head><body>"
+        "<h1>HELLO WORLD!!</h1>"
+      );
+      if (server->client().localIP() == apIP) {
+        server->sendContent(String("<p>You are connected through the soft AP: ") + softAP_ssid + "</p>");
+      } else {
+        server->sendContent(String("<p>You are connected through the wifi network: ") + ssid + "</p>");
+      }
+
+      response->print(
+        "<p><a href='/gallery.html'>Piskel Gallery</a>.</p>"
+      );
+      response->print(
+        "<p><a href='/edit'>File Editor / Uploader</a>.</p>"
+      );
+
+      response->print(
+        "<p><a href='/displayclock'>Display Clock</a>.</p>"
+      );
+
+      response->print(
+        "<p><form action=\"/scroll\" method=\"get\">"
+        "<div>"
+        "<label for=\"text\">Text:</label>"
+        "<input type=\"text\" id=\"text\" name=\"text\" value=\"Hello\"/>"
+        "</div>"
+        "<div>"
+        "<label for=\"color\">Color:</label>"
+        "<input type=\"text\" id=\"color\" name=\"color\" value=\"ff0000\"/>"
+        "</div>"
+        "<div class=\"button\">"
+        "<button type=\"submit\">Start</button>"
+        "</div>"
+
+        "</form></p>"
+      );
+
+
+      response->print(
+        "<p><a href='/wifi'>config the wifi connection</a>.</p>"
+        "</body></html>"
+      );
+      server->client().stop(); // Stop is needed because we sent no content length
+    }
+
+    /** Redirect to captive portal if we got a request for another domain. Return true in that case so the page handler do not try to handle the request again. */
+    boolean captivePortal(AsyncWebServerRequest *request) {
+      if (!isIp(server->hostHeader()) && server->hostHeader() != (String(myHostname) + ".local")) {
+        Serial.print("Request redirected to captive portal");
+        server->sendHeader("Location", String("http://") + toStringIp(server->client().localIP()), true);
+        server->send ( 302, "text/plain", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
+        server->client().stop(); // Stop is needed because we sent no content length
+        return true;
+      }
+      return false;
+    }
+    void handleWifiJSON(AsyncWebServerRequest *request) {
+      server->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      server->sendHeader("Pragma", "no-cache");
+      server->sendHeader("Expires", "-1");
+      server->setContentLength(CONTENT_LENGTH_UNKNOWN);
+      server->send(200, "text/json", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
+      int n = WiFi.scanNetworks();
+      Serial.println("scan done");
+      if (n > 0) {
+        server->sendContent(String() + "[\r\n");
+        for (int i = 0; i < n; i++) {
+          if (i > 0) server->sendContent(String() + ",\r\n");
+          response->print(String() + "{ \"ssid\": \"" + WiFi.SSID(i) + "\", \"encryption\": \"" + String((WiFi.encryptionType(i) == ENC_TYPE_NONE) ? "" : "*") + "\", \"strength\": " + WiFi.RSSI(i) + "}");
+        }
+        response->print(String() + "]\r\n");
+
+      } else {
+        response->print(String() + "{ \"error\": \"nowifi\" }");
+      }
+
+      server->client().stop(); // Stop is needed because we sent no content length
+
+    }
+    /** Wifi config page handler */
+    void handleWifi(AsyncWebServerRequest *request) {
+      server->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      server->sendHeader("Pragma", "no-cache");
+      server->sendHeader("Expires", "-1");
+      server->setContentLength(CONTENT_LENGTH_UNKNOWN);
+      server->send(200, "text/html", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
+      server->sendContent(
+        "<html><head></head><body>"
+        "<h1>Wifi config</h1>"
+      );
+      if (server->client().localIP() == apIP) {
+        response->print(String("<p>You are connected through the soft AP: ") + softAP_ssid + "</p>");
+      } else {
+        response->print(String("<p>You are connected through the wifi network: ") + ssid + "</p>");
+      }
+      response->print(
+        "\r\n<br />"
+        "<table><tr><th align='left'>SoftAP config</th></tr>"
+      );
+      response->print(String() + "<tr><td>SSID " + String(softAP_ssid) + "</td></tr>");
+      response->print(String() + "<tr><td>IP " + toStringIp(WiFi.softAPIP()) + "</td></tr>");
+      response->print(
+        "</table>"
+        "\r\n<br />"
+        "<table><tr><th align='left'>WLAN config</th></tr>"
+      );
+      response->print(String() + "<tr><td>SSID " + String(ssid) + "</td></tr>");
+      response->print(String() + "<tr><td>IP " + toStringIp(WiFi.localIP()) + "</td></tr>");
+      response->print(
+        "</table>"
+        "\r\n<br />"
+        "<table><tr><th align='left'>WLAN list (refresh if any missing)</th></tr>"
+      );
+      Serial.println("scan start");
+      int n = WiFi.scanNetworks();
+      Serial.println("scan done");
+      if (n > 0) {
+        for (int i = 0; i < n; i++) {
+          server->sendContent(String() + "\r\n<tr><td>SSID " + WiFi.SSID(i) + String((WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " " : " *") + " (" + WiFi.RSSI(i) + ")</td></tr>");
+        }
+      } else {
+        server->sendContent(String() + "<tr><td>No WLAN found</td></tr>");
+      }
+      response->print(
+        "</table>"
+        "\r\n<br /><form method='POST' action='wifisave'><h4>Connect to network:</h4>"
+        "<input type='text' placeholder='network' name='n'/>"
+        "<br /><input type='password' placeholder='password' name='p'/>"
+        "<br /><input type='submit' value='Connect/Disconnect'/></form>"
+        "<p>You may want to <a href='/'>return to the home page</a>.</p>"
+        "</body></html>"
+      );
+      server->client().stop(); // Stop is needed because we sent no content length
+    }
+
+    /** Handle the WLAN save form and redirect to WLAN config page again */
+    void handleWifiSave(AsyncWebServerRequest *request) {
+      Serial.println("wifi save");
+      server->arg("n").toCharArray(ssid, sizeof(ssid) - 1);
+      server->arg("p").toCharArray(password, sizeof(password) - 1);
+      server->sendHeader("Location", "wifi", true);
+      server->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      server->sendHeader("Pragma", "no-cache");
+      server->sendHeader("Expires", "-1");
+      server->send ( 302, "text/plain", "");  // Empty content inhibits Content-length header so we have to close the socket ourselves.
+      server->client().stop(); // Stop is needed because we sent no content length
+      saveCredentials();
+      connect = strlen(ssid) > 0; // Request WLAN connect with new credentials if there is a SSID
+    }
+
+    void handleNotFound(AsyncWebServerRequest *request) {
+      if (captivePortal()) { // If caprive portal redirect instead of displaying the error page.
+        return;
+      }
+      String message = "File Not Found\n\n";
+      message += "URI: ";
+      message += server->uri();
+      message += "\nMethod: ";
+      message += ( server->method() == HTTP_GET ) ? "GET" : "POST";
+      message += "\nArguments: ";
+      message += server->args();
+      message += "\n";
+
+      for ( uint8_t i = 0; i < server->args(); i++ ) {
+        message += " " + server->argName ( i ) + ": " + server->arg ( i ) + "\n";
+      }
+      server->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      server->sendHeader("Pragma", "no-cache");
+      server->sendHeader("Expires", "-1");
+      server->send ( 404, "text/plain", message );
+    }
+
+    void handleRequest(AsyncWebServerRequest * request) {
+
+      if (request->method() == HTTP_GET && request->url() == "/")
+        handleRoot(request);
+      else if (request->method() == HTTP_GET && request->url() == "/wifijson")
+        handleWifiJSON(request);
+      else if (request->method() == HTTP_GET && request->url() == "/wifi")
+        handleWifi(request);
+      else if (request->method() == HTTP_GET && request->url() == "/wifisave")
+        handleWifiSave(request);
+      else if (request->method() == HTTP_POST && request->url() == "/fwlink")
+        handleRoot(request);
+    }
+
+
+};
+#endif
 
 class DisplayHandler: public AsyncWebHandler {
     DisplayPixelsText *pixelText;
@@ -375,6 +609,8 @@ class PiskelHandler: public AsyncWebHandler {
       // os_printf("inside canHandle piskel  %s \n", request->url().c_str());
       if (request->method() == HTTP_GET && request->url().startsWith("/piskel/"))
         return true;
+      else   if (request->method() == HTTP_POST && request->url().startsWith("/piskel/"))
+        return true;
       return false;
     }
 
@@ -414,8 +650,20 @@ class PiskelHandler: public AsyncWebHandler {
     void handlePiskelSave(AsyncWebServerRequest *request, String id) {
       DBG_OUTPUT_PORT.println("handlePiskelSave");
 
+      /*
+          int params = request->params();
+          for (int i = 0; i < params; i++) {
+            AsyncWebParameter* p = request->getParam(i);
+            if (p->isFile()) {
+              os_printf("_FILE[%s]: %s, size: %u\n", p->name().c_str(), p->value().c_str(), p->size());
+            } else if (p->isPost()) {
+              os_printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
+            } else {
+              os_printf("_GET[%s]: %s\n", p->name().c_str(), p->value().c_str());
+            }
+          }
 
-
+      */
       //String result;
       String filename = "";
       if (id)
@@ -432,17 +680,22 @@ class PiskelHandler: public AsyncWebHandler {
       File file = SPIFFS.open(filename, "w");
 
       //String result = String("window.pskl.appEnginePiskelData_ = {\r\n \"piskel\" :");
+      String framesheet = request->getParam("framesheet", true)->value();
+      DBG_OUTPUT_PORT.println("framesheet:" + framesheet);
       String result = String("{\r\n \"piskel\" :");
-      result +=  request->getParam("framesheet")->value();
+      DBG_OUTPUT_PORT.println("result1:" + result);
+      result +=  framesheet;
+      DBG_OUTPUT_PORT.println("result2:" + result);
       result += ",\r\n";
       result += "\"isLoggedIn\": \"true\",";
-      result += "\"fps\":" +  request->getParam("fps")->value() + ",\r\n";
+      DBG_OUTPUT_PORT.println("result3:" + result);
+      result += "\"fps\":" +  request->getParam("fps", true)->value() + ",\r\n";
       result += "\"descriptor\" : {";
-      result += "\"name\": \"" + request->getParam("name")->value() + "\",";
-      result += "\"description\": \"" + request->getParam("description")->value() + "\",";
+      result += "\"name\": \"" + request->getParam("name", true)->value() + "\",";
+      result += "\"description\": \"" + request->getParam("description", true)->value() + "\",";
 
-      result += "\"first_frame_as_png\": \"" + request->getParam("first_frame_as_png")->value() + "\",";
-      result += "\"framesheet_as_png\": \"" + request->getParam("framesheet_as_png")->value() + "\",";
+      result += "\"first_frame_as_png\": \"" + request->getParam("first_frame_as_png", true)->value() + "\",";
+      result += "\"framesheet_as_png\": \"" + request->getParam("framesheet_as_png", true)->value() + "\",";
 
 
       result += "\"isPublic\": \"false\"";
@@ -521,7 +774,7 @@ class PiskelHandler: public AsyncWebHandler {
 
     void handleFilePiskelJSONIndex(AsyncWebServerRequest *request)
     {
-      AsyncResponseStream *response = request->beginResponseStream("application/javascript");
+      AsyncResponseStream *response = request->beginResponseStream("text/json");
 
       response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       response->addHeader("Pragma", "no-cache");
@@ -616,7 +869,7 @@ class PiskelHandler: public AsyncWebHandler {
 
     void handleRequest(AsyncWebServerRequest *request) {
 
-      if (request->method() == HTTP_GET && request->url().startsWith("/piskel/"))
+      if (request->url().startsWith("/piskel/"))
         handleFileReadPiskel(request, request->url());
     }
 
@@ -658,25 +911,46 @@ class SPIFFSEditor: public AsyncWebHandler {
       if (request->method() == HTTP_GET && request->url() == "/edit") {
         request->send(SPIFFS, "/edit.htm");
       } else if (request->method() == HTTP_GET && request->url() == "/list") {
+        os_printf("LIST\n");
+        int params = request->params();
+        for (int i = 0; i < params; i++) {
+          AsyncWebParameter* p = request->getParam(i);
+          if (p->isFile()) {
+            os_printf("_FILE[%s]: %s, size: %u\n", p->name().c_str(), p->value().c_str(), p->size());
+          } else if (p->isPost()) {
+            os_printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
+          } else {
+            os_printf("_GET[%s]: %s\n", p->name().c_str(), p->value().c_str());
+          }
+        }
+
         if (request->hasParam("dir")) {
           String path = request->getParam("dir")->value();
+          os_printf("LIST path:[%s]\n", path.c_str());
           Dir dir = SPIFFS.openDir(path);
           path = String();
-          String output = "[";
+
+
+          AsyncResponseStream *response = request->beginResponseStream("application/javascript",4096);
+          int start = 1;
+          response->print( "[");
           while (dir.next()) {
+
             File entry = dir.openFile("r");
-            if (output != "[") output += ',';
+            if (!start) response->print( ","); else start = 0;
+
             bool isDir = false;
-            output += "{\"type\":\"";
-            output += (isDir) ? "dir" : "file";
-            output += "\",\"name\":\"";
-            output += String(entry.name()).substring(1);
-            output += "\"}";
+            response->print("{\"type\":\"");
+            response->print((isDir) ? "dir" : "file");
+            response->print( "\",\"name\":\"");
+            response->print( String(entry.name()).substring(1));
+            response->print( "\"}");
             entry.close();
           }
-          output += "]";
-          request->send(200, "text/json", output);
-          output = String();
+          response->print("]");
+          request->send(response);
+         
+         
         }
         else
           request->send(400);
@@ -857,6 +1131,7 @@ void setup() {
     request->send(200, "text/plain", String(ESP.getFreeHeap()));
   });
 
+  //server.addHandler(new CaptiveHandler()).setFilter(ON_AP_FILTER);
   server.addHandler(thePOHandler);
   server.addHandler(thePiskelHandler);
   server.addHandler(theDisplay);
