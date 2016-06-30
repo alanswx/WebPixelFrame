@@ -931,7 +931,7 @@ class SPIFFSEditor: public AsyncWebHandler {
           path = String();
 
 
-          AsyncResponseStream *response = request->beginResponseStream("application/javascript",4096);
+          AsyncResponseStream *response = request->beginResponseStream("application/javascript", 4096);
           int start = 1;
           response->print( "[");
           while (dir.next()) {
@@ -949,8 +949,8 @@ class SPIFFSEditor: public AsyncWebHandler {
           }
           response->print("]");
           request->send(response);
-         
-         
+
+
         }
         else
           request->send(400);
@@ -1118,7 +1118,9 @@ void setup() {
     delay(1000);
     WiFi.begin(ssid, password);
   }
+  ArduinoOTA.setPassword((const char *)"123");
   ArduinoOTA.begin();
+
   //Serial.printf("format start\n"); SPIFFS.format();  Serial.printf("format end\n");
 
   ws.onEvent(onEvent);
