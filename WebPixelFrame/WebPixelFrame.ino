@@ -278,7 +278,7 @@ class DisplayHandler: public AsyncWebHandler {
     DisplayPixels *curPixel ;
     DisplayClock *pixelClock ;
     WiFiUDP ntpUDP;
-
+ 
     // By default 'time.nist.gov' is used with 60 seconds update interval and
     // no offset
     NTPClient *timeClient;
@@ -289,6 +289,7 @@ class DisplayHandler: public AsyncWebHandler {
     DisplayHandler()
     {
 
+ 
 
       timeClient = new NTPClient(ntpUDP, -28800 + (60 * 60/*DST*/));
       pixelText = new DisplayPixelsText();
@@ -578,7 +579,7 @@ class POHandler: public AsyncWebHandler {
         return;
       }
 
-      os_printf("send: SPIFFS [%s] [%s] [blank] [download?]", short_name.c_str(),path.c_str());
+      os_printf("send: SPIFFS [%s] [%s] [blank] [download?]", short_name.c_str(), path.c_str());
 
       request->send(SPIFFS, short_name, _setContentType(path));
       //request->send(SPIFFS, short_name, String(), request->hasParam("download"));
@@ -712,10 +713,10 @@ class PiskelHandler: public AsyncWebHandler {
 
     void handlePiskelLoad(AsyncWebServerRequest *request, String id)
     {
-     // DBG_OUTPUT_PORT.println("handlePiskelLoad");
+      // DBG_OUTPUT_PORT.println("handlePiskelLoad");
 
       String filename = "/piskeldata/" + id + ".json";
-     // DBG_OUTPUT_PORT.println(filename);
+      // DBG_OUTPUT_PORT.println(filename);
 
       File  file = SPIFFS.open(filename, "r");
 
@@ -724,7 +725,7 @@ class PiskelHandler: public AsyncWebHandler {
 
       //open the file here
 
-      AsyncResponseStream *response = request->beginResponseStream("application/javascript",4096);
+      AsyncResponseStream *response = request->beginResponseStream("application/javascript", 2048);
       response->print(  "window.pskl = window.pskl || {};"
                         "window.pskl.appEngineToken_ = false;"
                         "window.pskl.appEnginePiskelData_ =");
@@ -755,7 +756,7 @@ class PiskelHandler: public AsyncWebHandler {
           file.read((uint8_t *)buf, file.size());
           buf[file.size()] = '\0';
         }
-        os_printf("file size: %d\n",file.size());
+        os_printf("file size: %d\n", file.size());
         file.close();
         response->print(buf);
         free(buf);
@@ -775,13 +776,13 @@ class PiskelHandler: public AsyncWebHandler {
 #if 0
     void handleFilePiskelJSONIndex(AsyncWebServerRequest *request)
     {
-      AsyncResponseStream *response = request->beginResponseStream("text/json",4096);
+      AsyncResponseStream *response = request->beginResponseStream("text/json", 4096);
 
       response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       response->addHeader("Pragma", "no-cache");
       response->addHeader("Expires", "-1");
 
-int len=0;
+      int len = 0;
 
       Dir dir = SPIFFS.openDir("/piskeldata/");
       response->print( "[");
@@ -801,7 +802,7 @@ int len=0;
         char *buf = (char*)malloc(file.size() + 1);
         if (buf) {
           file.read((uint8_t *)buf, file.size());
-          len+=file.size();
+          len += file.size();
           buf[file.size()] = '\0';
         }
         file.close();
@@ -811,7 +812,7 @@ int len=0;
 
       }
       response->print("]");
-      os_printf("larger than: %d (4096)\n",len);
+      os_printf("larger than: %d (4096)\n", len);
       request->send(response);
 
     }
@@ -820,10 +821,10 @@ int len=0;
     {
 
 
-int len=0;
+      int len = 0;
 
       Dir dir = SPIFFS.openDir("/piskeldata/");
-      
+
       File tempFile = SPIFFS.open("/piskelindex.json", "w");
 
       tempFile.print("[");
@@ -843,7 +844,7 @@ int len=0;
         char *buf = (char*)malloc(file.size() + 1);
         if (buf) {
           file.read((uint8_t *)buf, file.size());
-          len+=file.size();
+          len += file.size();
           buf[file.size()] = '\0';
         }
         tempFile.print(buf);
@@ -853,14 +854,14 @@ int len=0;
 
       }
       tempFile.print("]");
-      os_printf("larger than: %d (4096)\n",len);
+      os_printf("larger than: %d (4096)\n", len);
 
       tempFile.close();
-      request->send(SPIFFS, "/piskelindex.json","text/json");
-      
- 
+      request->send(SPIFFS, "/piskelindex.json", "text/json");
+
+
     }
-    
+
     /*
         The piskel code expects url's to look like:
 
@@ -1156,6 +1157,8 @@ void initSerial() {
 }
 DisplayHandler *theDisplay = NULL;
 
+int sendmorse = 0;
+
 void setup() {
   initSerial();
   SPIFFS.begin();
@@ -1173,9 +1176,8 @@ void setup() {
 
   //Serial.printf("format start\n"); SPIFFS.format();  Serial.printf("format end\n");
 
-//  ws.onEvent(onEvent);
-//  server.addHandler(&ws);
-
+  //  ws.onEvent(onEvent);
+  //  server.addHandler(&ws);
 
   POHandler *thePOHandler = new POHandler();
   PiskelHandler *thePiskelHandler = new PiskelHandler(thePOHandler);
@@ -1183,10 +1185,12 @@ void setup() {
     request->send(200, "text/plain", String(ESP.getFreeHeap()));
   });
 
+
   //server.addHandler(new CaptiveHandler()).setFilter(ON_AP_FILTER);
   server.addHandler(thePOHandler);
   server.addHandler(thePiskelHandler);
   server.addHandler(theDisplay);
+
 
   server.serveStatic("/fs", SPIFFS, "/");
   server.addHandler(new SPIFFSEditor(http_username, http_password));
@@ -1265,10 +1269,13 @@ void setup() {
   });
 
   server.begin();
+
+
+
 }
 
 void loop() {
 
   ArduinoOTA.handle();
-  theDisplay->loop();
+  if (theDisplay) theDisplay->loop();
 }

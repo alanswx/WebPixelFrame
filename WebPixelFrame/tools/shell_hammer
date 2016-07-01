@@ -1,5 +1,6 @@
 #URL=http://10.0.2.29/piskel/2/css/piskel-style-packageda.css
-URL=http://10.0.2.29/index.htm
+URL=http://10.0.2.29/gallery.css
+#URL=http://10.0.2.29/index.htm
 curl -v "$URL" -o  a1 &> a1.txt &
 curl -v "$URL" -o  a2 &> a2.txt &
 curl -v "$URL" -o a3 &> a3.txt &

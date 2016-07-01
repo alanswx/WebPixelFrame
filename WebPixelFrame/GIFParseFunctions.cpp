@@ -302,7 +302,7 @@ void parseGraphicControlExtension() {
 #endif
   int len = readByte();	// Check length
   if (len != 4) {
-    Serial.println("Bad graphic control extension");
+    Serial.println("Bad grphc cntrl ext");
   }
 
   int packedBits = readByte();
@@ -316,7 +316,7 @@ void parseGraphicControlExtension() {
   disposalMethod = (packedBits >> 2) & 7;
   if (disposalMethod > 3) {
     disposalMethod = 0;
-    Serial.println("Invalid disposal value");
+    Serial.println("Inv dispos val");
   }
 
   readByte();	// Toss block end
@@ -406,7 +406,7 @@ int parseGIFFileTerminator() {
     Serial.print("Terminator byte: ");
     Serial.println(b, HEX);
 #endif
-    Serial.println("Bad GIF file format - Bad terminator");
+    Serial.println("Bad GIF - Bad terminator");
     return ERROR_BADGIFFORMAT;
   }
   else	{
