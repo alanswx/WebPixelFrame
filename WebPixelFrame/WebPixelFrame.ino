@@ -578,7 +578,7 @@ class POHandler: public AsyncWebHandler {
         return;
       }
 
-      os_printf("send: SPIFFS [%s] [blank] [download?]", path.c_str());
+      os_printf("send: SPIFFS [%s] [%s] [blank] [download?]", short_name.c_str(),path.c_str());
 
       request->send(SPIFFS, short_name, _setContentType(path));
       //request->send(SPIFFS, short_name, String(), request->hasParam("download"));
@@ -636,19 +636,19 @@ class PiskelHandler: public AsyncWebHandler {
       while (dir.next()) {
         String filenumberS = numberFromPath(dir.fileName());
 
-        DBG_OUTPUT_PORT.println(filenumberS);
+        //DBG_OUTPUT_PORT.println(filenumberS);
         int filenumber = filenumberS.toInt();
         filenumber++;
         if (filenumber > largestnumber) largestnumber = filenumber;
       }
-      DBG_OUTPUT_PORT.print("largestnumber: ");
-      DBG_OUTPUT_PORT.println(largestnumber);
+      //DBG_OUTPUT_PORT.print("largestnumber: ");
+      //DBG_OUTPUT_PORT.println(largestnumber);
       return largestnumber;
     }
 
 
     void handlePiskelSave(AsyncWebServerRequest *request, String id) {
-      DBG_OUTPUT_PORT.println("handlePiskelSave");
+      //DBG_OUTPUT_PORT.println("handlePiskelSave");
 
       /*
           int params = request->params();
@@ -673,22 +673,22 @@ class PiskelHandler: public AsyncWebHandler {
       else
       {
         int filenumber = findNextFileNumber();
-        DBG_OUTPUT_PORT.println("filenumber:" + filenumber);
+        //DBG_OUTPUT_PORT.println("filenumber:" + filenumber);
         filename = "/piskeldata/" + String(filenumber) + ".json";
       }
-      DBG_OUTPUT_PORT.println("filename [" + filename + "]");
+      //DBG_OUTPUT_PORT.println("filename [" + filename + "]");
       File file = SPIFFS.open(filename, "w");
 
       //String result = String("window.pskl.appEnginePiskelData_ = {\r\n \"piskel\" :");
       String framesheet = request->getParam("framesheet", true)->value();
-      DBG_OUTPUT_PORT.println("framesheet:" + framesheet);
+      //DBG_OUTPUT_PORT.println("framesheet:" + framesheet);
       String result = String("{\r\n \"piskel\" :");
-      DBG_OUTPUT_PORT.println("result1:" + result);
+      //DBG_OUTPUT_PORT.println("result1:" + result);
       result +=  framesheet;
-      DBG_OUTPUT_PORT.println("result2:" + result);
+      //DBG_OUTPUT_PORT.println("result2:" + result);
       result += ",\r\n";
       result += "\"isLoggedIn\": \"true\",";
-      DBG_OUTPUT_PORT.println("result3:" + result);
+      //DBG_OUTPUT_PORT.println("result3:" + result);
       result += "\"fps\":" +  request->getParam("fps", true)->value() + ",\r\n";
       result += "\"descriptor\" : {";
       result += "\"name\": \"" + request->getParam("name", true)->value() + "\",";
@@ -700,7 +700,7 @@ class PiskelHandler: public AsyncWebHandler {
 
       result += "\"isPublic\": \"false\"";
       result += "}\r\n}";
-      DBG_OUTPUT_PORT.println(result);
+      //DBG_OUTPUT_PORT.println(result);
       file.write((const uint8_t *)result.c_str(), result.length());
       if (file)
         file.close();
@@ -712,10 +712,10 @@ class PiskelHandler: public AsyncWebHandler {
 
     void handlePiskelLoad(AsyncWebServerRequest *request, String id)
     {
-      DBG_OUTPUT_PORT.println("handlePiskelLoad");
+     // DBG_OUTPUT_PORT.println("handlePiskelLoad");
 
       String filename = "/piskeldata/" + id + ".json";
-      DBG_OUTPUT_PORT.println(filename);
+     // DBG_OUTPUT_PORT.println(filename);
 
       File  file = SPIFFS.open(filename, "r");
 
@@ -724,7 +724,7 @@ class PiskelHandler: public AsyncWebHandler {
 
       //open the file here
 
-      AsyncResponseStream *response = request->beginResponseStream("application/javascript");
+      AsyncResponseStream *response = request->beginResponseStream("application/javascript",4096);
       response->print(  "window.pskl = window.pskl || {};"
                         "window.pskl.appEngineToken_ = false;"
                         "window.pskl.appEnginePiskelData_ =");
@@ -755,6 +755,7 @@ class PiskelHandler: public AsyncWebHandler {
           file.read((uint8_t *)buf, file.size());
           buf[file.size()] = '\0';
         }
+        os_printf("file size: %d\n",file.size());
         file.close();
         response->print(buf);
         free(buf);
@@ -771,15 +772,16 @@ class PiskelHandler: public AsyncWebHandler {
 
 
     }
-
+#if 0
     void handleFilePiskelJSONIndex(AsyncWebServerRequest *request)
     {
-      AsyncResponseStream *response = request->beginResponseStream("text/json");
+      AsyncResponseStream *response = request->beginResponseStream("text/json",4096);
 
       response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       response->addHeader("Pragma", "no-cache");
       response->addHeader("Expires", "-1");
 
+int len=0;
 
       Dir dir = SPIFFS.openDir("/piskeldata/");
       response->print( "[");
@@ -799,6 +801,7 @@ class PiskelHandler: public AsyncWebHandler {
         char *buf = (char*)malloc(file.size() + 1);
         if (buf) {
           file.read((uint8_t *)buf, file.size());
+          len+=file.size();
           buf[file.size()] = '\0';
         }
         file.close();
@@ -808,9 +811,56 @@ class PiskelHandler: public AsyncWebHandler {
 
       }
       response->print("]");
+      os_printf("larger than: %d (4096)\n",len);
       request->send(response);
 
     }
+#endif
+    void handleFilePiskelJSONIndex(AsyncWebServerRequest *request)
+    {
+
+
+int len=0;
+
+      Dir dir = SPIFFS.openDir("/piskeldata/");
+      
+      File tempFile = SPIFFS.open("/piskelindex.json", "w");
+
+      tempFile.print("[");
+      int first = 1;
+      while (dir.next()) {
+        if (first)
+          first = 0;
+        else
+          tempFile.print( ",");
+
+
+        String number = numberFromPath(dir.fileName());
+        File file = SPIFFS.open(dir.fileName(), "r");
+
+        tempFile.print( "{\"" + number + "\":");
+        //  response->print(dir.fileName());
+        char *buf = (char*)malloc(file.size() + 1);
+        if (buf) {
+          file.read((uint8_t *)buf, file.size());
+          len+=file.size();
+          buf[file.size()] = '\0';
+        }
+        tempFile.print(buf);
+        file.close();
+        free(buf);
+        tempFile.print("}");
+
+      }
+      tempFile.print("]");
+      os_printf("larger than: %d (4096)\n",len);
+
+      tempFile.close();
+      request->send(SPIFFS, "/piskelindex.json","text/json");
+      
+ 
+    }
+    
     /*
         The piskel code expects url's to look like:
 
@@ -842,11 +892,11 @@ class PiskelHandler: public AsyncWebHandler {
       int piskelLen = 8;
       int pos = path.indexOf("/", piskelLen);
       String filenumberS = path.substring(piskelLen, pos);
-      DBG_OUTPUT_PORT.println(filenumberS);
+      //DBG_OUTPUT_PORT.println(filenumberS);
 
       String newpath = path.substring(pos + 1);
       newpath = String("/p/") + newpath;
-      DBG_OUTPUT_PORT.println(newpath);
+      //DBG_OUTPUT_PORT.println(newpath);
 
       // if we have the data js file, then we return that, otherwise we return the static files
       if (newpath == "/p/load")
@@ -1009,7 +1059,7 @@ class SPIFFSEditor: public AsyncWebHandler {
 // SKETCH BEGIN
 AsyncWebServer server(80);
 
-AsyncWebSocket ws("/ws");
+//AsyncWebSocket ws("/ws");
 
 void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len) {
   if (type == WS_EVT_CONNECT) {
@@ -1118,13 +1168,13 @@ void setup() {
     delay(1000);
     WiFi.begin(ssid, password);
   }
-  ArduinoOTA.setPassword((const char *)"123");
+  ArduinoOTA.setPassword((const char *)"");
   ArduinoOTA.begin();
 
   //Serial.printf("format start\n"); SPIFFS.format();  Serial.printf("format end\n");
 
-  ws.onEvent(onEvent);
-  server.addHandler(&ws);
+//  ws.onEvent(onEvent);
+//  server.addHandler(&ws);
 
 
   POHandler *thePOHandler = new POHandler();
