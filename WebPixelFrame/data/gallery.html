@@ -1,13 +1,15 @@
+<link rel="stylesheet" type="text/css" href="/gallery.css"/>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
 <script>
 var anim_img = [];
 var ourhtml='';
-</script>
-	<script type="text/javascript" src="/gallery.js"></script>
-<link rel="stylesheet" type="text/css" href="/gallery.css"/>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
-<div class="main" id='gallery' ></div>  
-<div id='new' ></div>  
-<script>
+
+$(function() {
+$.getScript( "/gallery.js", function( data, textStatus, jqxhr ) {
+  console.log( data ); // Data returned
+  console.log( textStatus ); // Success
+  console.log( jqxhr.status ); // 200
+  console.log( "Load was performed." );
 $.ajax({url: "/piskel/json", success: function(result){
 var lastnum =0;
 $(result).each(function(index, element){  
@@ -52,7 +54,12 @@ console.log(ourhtml);
      $('#new').append('<a href="/piskel/'+lastnum+'/">New</a>');
     }});
 
+});
+});
+
 </script>
+<div class="main" id='gallery' ></div>  
+<div id='new' ></div>  
 
 
 
