@@ -36,7 +36,7 @@
 // NOTE: LZW_MAXBITS should be set to 10 or 11 for small displays, 12 for large displays
 //   all 32x32-pixel GIFs tested work with 11, most work with 10
 //   LZW_MAXBITS = 12 will support all GIFs, but takes 16kB RAM
-#define LZW_MAXBITS    12
+#define LZW_MAXBITS    10
 #define LZW_SIZTABLE  (1 << LZW_MAXBITS)
 
 // Masks for 0 .. 16 bits
