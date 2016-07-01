@@ -1,0 +1,17 @@
+#URL=http://10.0.2.29/piskel/2/css/piskel-style-packageda.css
+URL=http://10.0.2.29/index.htm
+curl -v "$URL" -o  a1 &> a1.txt &
+curl -v "$URL" -o  a2 &> a2.txt &
+curl -v "$URL" -o a3 &> a3.txt &
+curl -v "$URL" -o a4 &> a4.txt &
+curl -v "$URL" -o a5 &> a5.txt &
+curl -v "$URL" -o a6 &> a6.txt &
+curl -v "$URL" -o a7 
+curl -v "$URL" -o a8 
+curl -v "$URL" -o a9 
+curl -v "$URL" -o b1 
+curl -v "$URL" -o b2 
+curl -v "$URL" -o b3 
+curl -v "$URL" -o b4 
+curl -v "$URL" -o b5 
+curl -v "$URL" -o b6 
