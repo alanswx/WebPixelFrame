@@ -278,7 +278,7 @@ class DisplayHandler: public AsyncWebHandler {
     DisplayPixels *curPixel ;
     DisplayClock *pixelClock ;
     WiFiUDP ntpUDP;
- 
+
     // By default 'time.nist.gov' is used with 60 seconds update interval and
     // no offset
     NTPClient *timeClient;
@@ -289,7 +289,7 @@ class DisplayHandler: public AsyncWebHandler {
     DisplayHandler()
     {
 
- 
+
 
       timeClient = new NTPClient(ntpUDP, -28800 + (60 * 60/*DST*/));
       pixelText = new DisplayPixelsText();
@@ -647,6 +647,21 @@ class PiskelHandler: public AsyncWebHandler {
       return largestnumber;
     }
 
+    void handlePiskelUpload(AsyncWebServerRequest *request, String id) {
+
+      int params = request->params();
+      for (int i = 0; i < params; i++) {
+        AsyncWebParameter* p = request->getParam(i);
+        if (p->isFile()) {
+          os_printf("_FILE[%s]: %s, size: %u\n", p->name().c_str(), p->value().c_str(), p->size());
+        } else if (p->isPost()) {
+          os_printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
+        } else {
+          os_printf("_GET[%s]: %s\n", p->name().c_str(), p->value().c_str());
+        }
+      }
+
+    }
 
     void handlePiskelSave(AsyncWebServerRequest *request, String id) {
       //DBG_OUTPUT_PORT.println("handlePiskelSave");
@@ -909,6 +924,12 @@ class PiskelHandler: public AsyncWebHandler {
       {
         handlePiskelSave(request, filenumberS);
         return ;
+      }
+      else if (newpath == "/p/upload")
+      {
+        handlePiskelUpload(request, filenumberS);
+        return ;
+
       }
       else
         _thePOHandler->handleRequest(request, newpath);
