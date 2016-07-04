@@ -5,6 +5,7 @@
 #include <Hash.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <ESPAsyncWiFiManager.h>
 
 #include <NeoPixelBus.h>   // https://github.com/Makuna/NeoPixelBus
 #include <NTPClient.h>   // https://github.com/arduino-libraries/NTPClient
@@ -1080,6 +1081,8 @@ class SPIFFSEditor: public AsyncWebHandler {
 
 // SKETCH BEGIN
 AsyncWebServer server(80);
+DNSServer dns;
+AsyncWiFiManager wifiManager(&server, &dns);
 
 //AsyncWebSocket ws("/ws");
 
@@ -1170,7 +1173,20 @@ static void _u0_putc(char c) {
   while (((U0S >> USTXC) & 0x7F) == 0x7F);
   U0F = c;
 }
+//callback notifying us of the need to save config
+void saveConfigCallback () {
+  Serial.println("save config");
+    // Setup MDNS responder
+    String softap_new_ssid = "WebPixelFrame" + String("_") + String(ESP.getChipId());
 
+  if (!MDNS.begin(softap_new_ssid.c_str()/*myHostname*/)) {
+    Serial.println("Error setting up MDNS responder!");
+  } else {
+    Serial.println("mDNS responder started");
+    // Add service to MDNS-SD
+    MDNS.addService("http", "tcp", 80);
+  }
+}
 void initSerial() {
   Serial.begin(115200);
   ets_install_putc1((void *) &_u0_putc);
@@ -1184,6 +1200,14 @@ void setup() {
   initSerial();
   SPIFFS.begin();
   theDisplay = new DisplayHandler();
+
+  //WiFi.disconnect(true);
+  //MDNS?
+
+  String softap_new_ssid = "WebPixelFrame" + String("_") + String(ESP.getChipId());
+
+
+#if 0
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
@@ -1192,9 +1216,12 @@ void setup() {
     delay(1000);
     WiFi.begin(ssid, password);
   }
+#endif
+  //wifiManager.autoConnect(softap_new_ssid.c_str());
+  wifiManager.setSaveConfigCallback(saveConfigCallback);
+  wifiManager.startConfigPortalModeless(softap_new_ssid.c_str(), "");
   ArduinoOTA.setPassword((const char *)"");
   ArduinoOTA.begin();
-
   //Serial.printf("format start\n"); SPIFFS.format();  Serial.printf("format end\n");
 
   //  ws.onEvent(onEvent);
@@ -1208,13 +1235,16 @@ void setup() {
 
 
   //server.addHandler(new CaptiveHandler()).setFilter(ON_AP_FILTER);
-  server.addHandler(thePOHandler);
-  server.addHandler(thePiskelHandler);
-  server.addHandler(theDisplay);
+  server.addHandler(thePOHandler).setFilter(ON_STA_FILTER);
+  server.addHandler(thePiskelHandler).setFilter(ON_STA_FILTER);
+  server.addHandler(theDisplay).setFilter(ON_STA_FILTER);
 
 
-  server.serveStatic("/fs", SPIFFS, "/");
-  server.addHandler(new SPIFFSEditor(http_username, http_password));
+  server.serveStatic("/fs", SPIFFS, "/").setFilter(ON_STA_FILTER);
+  server.addHandler(new SPIFFSEditor(http_username, http_password)).setFilter(ON_STA_FILTER);
+
+  // how do we filter the notfound correctly?
+#if 0
   server.onNotFound([](AsyncWebServerRequest * request) {
     os_printf("NOT_FOUND: ");
     if (request->method() == HTTP_GET)
@@ -1261,6 +1291,7 @@ void setup() {
 
     request->send(404);
   });
+#endif
   server.onFileUpload([](AsyncWebServerRequest * request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
     if (!index)
       os_printf("UploadStart: %s\n", filename.c_str());
@@ -1287,16 +1318,20 @@ void setup() {
     json += "}";
     request->send(200, "text/json", json);
     json = String();
-  });
+  }).setFilter(ON_STA_FILTER);
 
-  server.begin();
+
+
+  //server.begin();
 
 
 
 }
 
 void loop() {
-
+  wifiManager.loop();
+  dns.processNextRequest();
+  MDNS.update();
   ArduinoOTA.handle();
   if (theDisplay) theDisplay->loop();
 }
