@@ -1,3 +1,4 @@
+#if 0
 /*
  * Animated GIFs Display Code for SmartMatrix and 32x32 RGB LED Panels
  *
@@ -197,3 +198,4 @@ int lzw_decode(byte *buf, int len) {
     end_code = -1;
     return len - l;
 }
+#endif

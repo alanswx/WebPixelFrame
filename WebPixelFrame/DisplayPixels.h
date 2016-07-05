@@ -29,6 +29,7 @@ class DisplayPixels
     
     DisplayPixels() { }
     virtual void UpdateAnimation(void) = 0;
+    virtual void stop() {}
   protected:
    
 };

@@ -1,3 +1,4 @@
+#if 0
 #ifndef _GIFDECODER_H_
 #define _GIFDECODER_H_
 
@@ -37,4 +38,5 @@ int lzw_decode(byte *buf, int len);
 void decompressAndDisplayFrame(unsigned long filePositionAfter);
 void lzw_setTempBuffer(byte * tempBuffer);
 
+#endif
 #endif

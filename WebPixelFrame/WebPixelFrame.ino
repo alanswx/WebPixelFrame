@@ -68,6 +68,11 @@ class DisplayHandler: public AsyncWebHandler {
 
     }
 
+    void stop()
+    {
+      curPixel->stop();
+    }
+
     void loop()
     {
       //  os_printf("loop: \n");
@@ -95,6 +100,7 @@ class DisplayHandler: public AsyncWebHandler {
 
     void displayClock(AsyncWebServerRequest *request)
     {
+      curPixel->stop();
       curPixel = pixelClock;
       pixelClock->UpdateAnimation();
       request->send(200, "text/html", "clock started");
@@ -104,6 +110,7 @@ class DisplayHandler: public AsyncWebHandler {
     void handleClearScreen(AsyncWebServerRequest *request)
     {
       pixelLive->Clear();
+      curPixel->stop();
       curPixel = pixelLive;
 
       request->send(200, "text/plain", "clear screen");
@@ -167,6 +174,7 @@ class DisplayHandler: public AsyncWebHandler {
         String output = "Setting scroll to: ";
         output += text;
 
+        curPixel->stop();
         curPixel = pixelText;
         curPixel->UpdateAnimation();
         request->send(200, "text/html", output);
@@ -179,6 +187,8 @@ class DisplayHandler: public AsyncWebHandler {
     void handleGif(AsyncWebServerRequest *request)
     {
       os_printf("inside handleGif \n");
+
+      curPixel->stop();
       pixelGIF->SetGIF(request->url());
       curPixel = pixelGIF;
       request->send(SPIFFS, request->url());
@@ -236,6 +246,7 @@ class DisplayHandler: public AsyncWebHandler {
             pixelLive->SetPixel(x, y, r, g, b);
           }
         }
+        curPixel->stop();
         curPixel = pixelLive;
 
         request->send(200, "text/html", "setpixels");
@@ -362,11 +373,13 @@ class POHandler: public AsyncWebHandler {
 class PiskelHandler: public AsyncWebHandler {
 
     POHandler *_thePOHandler;
+    DisplayHandler *_theDisplayHandler;
 
   public:
-    PiskelHandler(POHandler *thePOHandler)
+    PiskelHandler(POHandler *thePOHandler, DisplayHandler *theDisplay)
     {
       _thePOHandler = thePOHandler;
+      _theDisplayHandler = theDisplay;
     }
 
 
@@ -553,53 +566,10 @@ class PiskelHandler: public AsyncWebHandler {
 
 
     }
-#if 0
+
     void handleFilePiskelJSONIndex(AsyncWebServerRequest *request)
     {
-      AsyncResponseStream *response = request->beginResponseStream("text/json", 4096);
-
-      response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      response->addHeader("Pragma", "no-cache");
-      response->addHeader("Expires", "-1");
-
-      int len = 0;
-
-      Dir dir = SPIFFS.openDir("/piskeldata/");
-      response->print( "[");
-      int first = 1;
-      while (dir.next()) {
-        if (first)
-          first = 0;
-        else
-          response->print( ",");
-
-
-        String number = numberFromPath(dir.fileName());
-        File file = SPIFFS.open(dir.fileName(), "r");
-
-        response->print( "{\"" + number + "\":");
-        //  response->print(dir.fileName());
-        char *buf = (char*)malloc(file.size() + 1);
-        if (buf) {
-          file.read((uint8_t *)buf, file.size());
-          len += file.size();
-          buf[file.size()] = '\0';
-        }
-        file.close();
-        response->print(buf);
-        free(buf);
-        response->print("}");
-
-      }
-      response->print("]");
-      os_printf("larger than: %d (4096)\n", len);
-      request->send(response);
-
-    }
-#endif
-    void handleFilePiskelJSONIndex(AsyncWebServerRequest *request)
-    {
-
+      _theDisplayHandler->stop();
 
       int len = 0;
 
@@ -940,8 +910,8 @@ static void _u0_putc(char c) {
 //callback notifying us of the need to save config
 void saveConfigCallback () {
   Serial.println("save config");
-    // Setup MDNS responder
-    String softap_new_ssid = "WebPixelFrame" + String("_") + String(ESP.getChipId());
+  // Setup MDNS responder
+  String softap_new_ssid = "WebPixelFrame" + String("_") + String(ESP.getChipId());
 
   if (!MDNS.begin(softap_new_ssid.c_str()/*myHostname*/)) {
     Serial.println("Error setting up MDNS responder!");
@@ -992,7 +962,7 @@ void setup() {
   //  server.addHandler(&ws);
 
   POHandler *thePOHandler = new POHandler();
-  PiskelHandler *thePiskelHandler = new PiskelHandler(thePOHandler);
+  PiskelHandler *thePiskelHandler = new PiskelHandler(thePOHandler, theDisplay);
   server.on("/heap", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->send(200, "text/plain", String(ESP.getFreeHeap()));
   });
