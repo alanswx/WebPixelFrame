@@ -3,9 +3,9 @@
 #include <ArduinoOTA.h>
 #include <FS.h>
 
-#include <ESPAsyncTCP.h>
-#include <ESPAsyncWebServer.h>
-#include <ESPAsyncWiFiManager.h>
+#include <ESPAsyncTCP.h>   // https://github.com/me-no-dev/ESPAsyncTCP
+#include <ESPAsyncWebServer.h>  // https://github.com/me-no-dev/ESPAsyncWebServer/
+#include <ESPAsyncWiFiManager.h>  // https://github.com/alanswx/ESPAsyncWiFiManager
 
 #include <NeoPixelBus.h>   // https://github.com/Makuna/NeoPixelBus
 #include <NTPClient.h>   // https://github.com/arduino-libraries/NTPClient
