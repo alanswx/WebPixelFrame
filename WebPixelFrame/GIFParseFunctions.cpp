@@ -1,3 +1,4 @@
+#if 0
 /*
    Animated GIFs Display Code for SmartMatrix and 32x32 RGB LED Panels
 
@@ -787,3 +788,4 @@ void decompressAndDisplayFrame(unsigned long filePositionAfter) {
   if (updateScreenCallback)
     (*updateScreenCallback)();
 }
+#endif
