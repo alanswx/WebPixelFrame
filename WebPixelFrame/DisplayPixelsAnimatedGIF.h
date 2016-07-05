@@ -21,7 +21,7 @@ void fillScreen( uint8_t red, uint8_t green, uint8_t blue)
 }
 #include "GifPlayer.h"
 #include "GIFDecoder.h"
-
+#if 0
 static void gif_pixel_callback(int16_t x, int16_t y, uint8_t red, uint8_t green, uint8_t blue)
 {
   ESP.wdtFeed();
@@ -43,6 +43,7 @@ static void idleCallback()
   updateScreenCallbackS();
   ESP.wdtFeed();
 }
+#endif
 
 
 class DisplayPixelsAnimatedGIF : public DisplayPixels {
