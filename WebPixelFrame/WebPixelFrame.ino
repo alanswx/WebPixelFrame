@@ -2,7 +2,7 @@
 #include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
 #include <FS.h>
-#include <Hash.h>
+
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPAsyncWiFiManager.h>
@@ -20,6 +20,7 @@
 
 NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> *strip = new NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> (PixelCount, 2);
 
+#if 0
 
 uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
 {
@@ -28,13 +29,7 @@ uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
 
 }
 
-/* called from animate gif code */
-void updateScreenCallbackS()
-{
-  //dnsServer.processNextRequest();
-  MDNS.update();
-
-}
+#endif
 
 class DisplayHandler: public AsyncWebHandler {
     DisplayPixelsText *pixelText;

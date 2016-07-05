@@ -3,11 +3,14 @@ Code to control a ESP8266 and a matrix of ws2812b pixels.
 
 Requires these libraries:
 
-https://github.com/Makuna/NeoPixelBus
-https://github.com/arduino-libraries/NTPClient
-
+- [NeoPixelBus](https://github.com/Makuna/NeoPixelBus)
+- [NTPClient](https://github.com/arduino-libraries/NTPClient)
+- [ESPAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP)
+- [ESP Async Web Server](https://github.com/me-no-dev/ESPAsyncWebServer)
+- [ESPAsyncWiFiManager](https://github.com/alanswx/ESPAsyncWiFiManager)
 
 Piskel is a submodule. Make sure to clone the repo with --recursive:
-git clone --recursive git://github.com/alanswx/WebPixelFrame.git
+
+``git clone --recursive git://github.com/alanswx/WebPixelFrame.git``
 
 
