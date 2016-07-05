@@ -11,6 +11,9 @@
 #include <NTPClient.h>   // https://github.com/arduino-libraries/NTPClient
 #include <DNSServer.h>
 
+#include <libb64/cdecode.h>
+
+
 
 #include "DisplayPixelsLive.h"
 #include "DisplayPixelsText.h"
@@ -428,15 +431,38 @@ class PiskelHandler: public AsyncWebHandler {
         if (p->isFile()) {
           os_printf("_FILE[%s]: %s, size: %u\n", p->name().c_str(), p->value().c_str(), p->size());
         } else if (p->isPost()) {
-          os_printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
+          os_printf("hrspiff _POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
         } else {
           os_printf("_GET[%s]: %s\n", p->name().c_str(), p->value().c_str());
         }
       }
 
-    }
 
-    void handlePiskelSave(AsyncWebServerRequest *request, String id) {
+      // not sure the name - let's just use default.gif for right now
+      if (request->hasParam("data" ,true)) {
+        String data = request->getParam("data", true)->value();
+        os_printf("data: %s\n", data.c_str());
+        int len = data.length();
+        int newbufsize = base64_decode_expected_len(data.length());
+        uint8_t *newbuf = (uint8_t *)malloc(newbufsize);
+        if (newbuf)
+        {
+        int finallen = base64_decode_chars((char *)data.c_str()+22, len-22, (char *)newbuf);
+        //
+        // write the gif
+        //
+        File file = SPIFFS.open("/gif/default.gif", "w");
+        if (file)
+          file.write((const uint8_t *)newbuf, finallen);
+        if (file)
+          file.close();
+        free(newbuf);
+        }
+        request->send(200, "text/html", "/gif/default.gif");
+
+      }
+    }
+    void handlePiskelSave(AsyncWebServerRequest * request, String id) {
       //DBG_OUTPUT_PORT.println("handlePiskelSave");
 
       /*
@@ -499,7 +525,7 @@ class PiskelHandler: public AsyncWebHandler {
     }
 
 
-    void handlePiskelLoad(AsyncWebServerRequest *request, String id)
+    void handlePiskelLoad(AsyncWebServerRequest * request, String id)
     {
       // DBG_OUTPUT_PORT.println("handlePiskelLoad");
 
@@ -562,7 +588,7 @@ class PiskelHandler: public AsyncWebHandler {
 
     }
 
-    void handleFilePiskelJSONIndex(AsyncWebServerRequest *request)
+    void handleFilePiskelJSONIndex(AsyncWebServerRequest * request)
     {
       _theDisplayHandler->stop();
 
@@ -617,7 +643,7 @@ class PiskelHandler: public AsyncWebHandler {
     */
 
 
-    void handleFileReadPiskel(AsyncWebServerRequest *request, String path)
+    void handleFileReadPiskel(AsyncWebServerRequest * request, String path)
     {
 
       if (path == "/piskel/")
@@ -669,7 +695,7 @@ class PiskelHandler: public AsyncWebHandler {
     }
 
 
-    void handleRequest(AsyncWebServerRequest *request) {
+    void handleRequest(AsyncWebServerRequest * request) {
 
       if (request->url().startsWith("/piskel/"))
         handleFileReadPiskel(request, request->url());
