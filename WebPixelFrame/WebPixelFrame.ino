@@ -92,8 +92,8 @@ class DisplayHandler: public AsyncWebHandler {
         digitalWrite(relayPin, LOW);  // turn off relay with voltage LOW
         os_printf("low\n");
         delay(interval);              // pause
-        
-        if (morsecount==0) sendmorse=false;
+
+        if (morsecount == 0) sendmorse = false;
         morsecount--;
       }
 
@@ -131,7 +131,7 @@ class DisplayHandler: public AsyncWebHandler {
     {
       os_printf("handleMorse\n");
       sendmorse = true;
-      morsecount=5;
+      morsecount = 5;
       request->send(200, "text/html", "morse ticked");
     }
 
@@ -399,7 +399,21 @@ class POHandler: public AsyncWebHandler {
     }
 };
 
+/*
+     The PiskelHandler handles all the loading and saving of data for the piskel
+     javascript pixel editor.
 
+     It looks like:
+
+     /piskel/  -- this loads gallery.html, and some javascript to display the gallery
+     /piskel/json   -- gallery.html requests this json which gives us a list of all the piskel files stored in /piskeldata/
+     /piskel/1/ -- this would load the piskel javascript, for 1.json
+     /piskel/l/load
+     /piskel/1/save
+     /piskel/1/upload
+     /piskel/1/delete
+
+*/
 class PiskelHandler: public AsyncWebHandler {
 
     POHandler *_thePOHandler;
@@ -483,7 +497,7 @@ class PiskelHandler: public AsyncWebHandler {
           //
           // write the gif
           //
-           String filename = "/gif/" + id + ".gif";
+          String filename = "/gif/" + id + ".gif";
           File file = SPIFFS.open(filename, "w");
           if (file)
             file.write((const uint8_t *)newbuf, finallen);
@@ -495,6 +509,14 @@ class PiskelHandler: public AsyncWebHandler {
 
       }
     }
+
+    void handlePiskelDelete(AsyncWebServerRequest * request, String id) {
+      String  filename = "/piskeldata/" + id + ".json";
+      SPIFFS.remove(filename);
+      request->send(200, "text/html", "file removed");
+
+    }
+
     void handlePiskelSave(AsyncWebServerRequest * request, String id) {
       //DBG_OUTPUT_PORT.println("handlePiskelSave");
 
@@ -720,6 +742,11 @@ class PiskelHandler: public AsyncWebHandler {
         return ;
 
       }
+      else if (newpath == "/p/delete")
+      {
+        handlePiskelDelete(request, filenumberS);
+        return ;
+      }
       else
         _thePOHandler->handleRequest(request, newpath);
 
@@ -918,25 +945,16 @@ void setup() {
   String softap_new_ssid = "WebPixelFrame" + String("_") + String(ESP.getChipId());
 
 
-#if 0
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.printf("STA: Failed!\n");
-    WiFi.disconnect(false);
-    delay(1000);
-    WiFi.begin(ssid, password);
-  }
-#endif
+  // modal:
   //wifiManager.autoConnect(softap_new_ssid.c_str());
   wifiManager.setSaveConfigCallback(saveConfigCallback);
+  // modeless:
   wifiManager.startConfigPortalModeless(softap_new_ssid.c_str(), "");
+
+
   ArduinoOTA.setPassword((const char *)"");
   ArduinoOTA.begin();
   //Serial.printf("format start\n"); SPIFFS.format();  Serial.printf("format end\n");
-
-  //  ws.onEvent(onEvent);
-  //  server.addHandler(&ws);
 
   POHandler *thePOHandler = new POHandler();
   PiskelHandler *thePiskelHandler = new PiskelHandler(thePOHandler, theDisplay);
@@ -945,7 +963,6 @@ void setup() {
   });
 
 
-  //server.addHandler(new CaptiveHandler()).setFilter(ON_AP_FILTER);
   server.addHandler(thePOHandler).setFilter(ON_STA_FILTER);
   server.addHandler(thePiskelHandler).setFilter(ON_STA_FILTER);
   server.addHandler(theDisplay).setFilter(ON_STA_FILTER);
@@ -955,6 +972,7 @@ void setup() {
   server.addHandler(new SPIFFSEditor(http_username, http_password)).setFilter(ON_STA_FILTER);
 
   // how do we filter the notfound correctly?
+  // this is picked up by the AsyncWiFiManager - if we set it here, we will lose the captive portal for all the 404 urls
 #if 0
   server.onNotFound([](AsyncWebServerRequest * request) {
     os_printf("NOT_FOUND: ");
@@ -1032,7 +1050,7 @@ void setup() {
   }).setFilter(ON_STA_FILTER);
 
 
-
+  // this is being done in the AsyncWiFiManager
   //server.begin();
 
 
