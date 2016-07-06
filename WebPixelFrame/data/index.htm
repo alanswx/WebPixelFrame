@@ -21,6 +21,7 @@
   <meta http-equiv="Content-type" content="text/html; charset=utf-8">
   <title>ESP Monitor</title>
   <script type="text/javascript" src="graphs.js"></script>
+  <script type="text/javascript" src="jscolor.min.js"></script>
   <script type="text/javascript">
     var heap,temp,digi;
     var reloadPeriod = 1000;
@@ -104,7 +105,7 @@
         </div>
         <div>
         <label for="color">Color:</label>
-        <input type="text" id="color" name="color" value="ff0000"/>
+        <input class="jscolor" type="text" id="color" name="color" value="ff0000"/>
         </div>
         <div class="button">
         <button type="submit">Start</button>
