@@ -42,10 +42,14 @@ class DisplayHandler: public AsyncWebHandler {
     DisplayClock *pixelClock ;
     WiFiUDP ntpUDP;
 
+    const int relayPin = D1;
+    const long interval = 200;  // pause for two seconds
+
     // By default 'time.nist.gov' is used with 60 seconds update interval and
     // no offset
     NTPClient *timeClient;
-
+    bool sendmorse;
+    int morsecount;
 #define useNTP 1
 
   public:
@@ -60,9 +64,10 @@ class DisplayHandler: public AsyncWebHandler {
       pixelLive = new DisplayPixelsLive();
       pixelClock = new DisplayClock(timeClient);
       curPixel = pixelClock;
-
       strip->Begin();
       //  strip->Show();
+      sendmorse = false;
+      pinMode(relayPin, OUTPUT);
 
     }
 
@@ -77,6 +82,21 @@ class DisplayHandler: public AsyncWebHandler {
       timeClient->update();
       if (curPixel) curPixel->UpdateAnimation();
       strip->Show();
+
+      if (sendmorse && morsecount)
+      {
+        os_printf("inside loop - sendmorse\n");
+        digitalWrite(relayPin, HIGH); // turn on relay with voltage HIGH
+        os_printf("high\n");
+        delay(interval);              // pause
+        digitalWrite(relayPin, LOW);  // turn off relay with voltage LOW
+        os_printf("low\n");
+        delay(interval);              // pause
+        
+        if (morsecount==0) sendmorse=false;
+        morsecount--;
+      }
+
     }
 
     bool canHandle(AsyncWebServerRequest *request) {
@@ -88,6 +108,8 @@ class DisplayHandler: public AsyncWebHandler {
       else if (request->method() == HTTP_GET && request->url() == "/clearscreen")
         return true;
       else if (request->method() == HTTP_GET && request->url() == "/scroll")
+        return true;
+      else if (request->method() == HTTP_GET && request->url() == "/morse")
         return true;
       else if (request->method() == HTTP_GET && request->url().startsWith("/gif/"))
         return true;
@@ -103,6 +125,14 @@ class DisplayHandler: public AsyncWebHandler {
       pixelClock->UpdateAnimation();
       request->send(200, "text/html", "clock started");
 
+    }
+
+    void handleMorse(AsyncWebServerRequest *request)
+    {
+      os_printf("handleMorse\n");
+      sendmorse = true;
+      morsecount=5;
+      request->send(200, "text/html", "morse ticked");
     }
 
     void handleClearScreen(AsyncWebServerRequest *request)
@@ -262,6 +292,8 @@ class DisplayHandler: public AsyncWebHandler {
         setScrollText(request);
       else if (request->method() == HTTP_GET && request->url().startsWith("/gif/"))
         handleGif(request);
+      else if (request->method() == HTTP_GET && request->url() == "/morse")
+        handleMorse(request);
       else if (request->method() == HTTP_POST && request->url() == "/setpixels")
         handleSetPixels(request);
     }
@@ -439,7 +471,7 @@ class PiskelHandler: public AsyncWebHandler {
 
 
       // not sure the name - let's just use default.gif for right now
-      if (request->hasParam("data" ,true)) {
+      if (request->hasParam("data" , true)) {
         String data = request->getParam("data", true)->value();
         os_printf("data: %s\n", data.c_str());
         int len = data.length();
@@ -447,16 +479,17 @@ class PiskelHandler: public AsyncWebHandler {
         uint8_t *newbuf = (uint8_t *)malloc(newbufsize);
         if (newbuf)
         {
-        int finallen = base64_decode_chars((char *)data.c_str()+22, len-22, (char *)newbuf);
-        //
-        // write the gif
-        //
-        File file = SPIFFS.open("/gif/default.gif", "w");
-        if (file)
-          file.write((const uint8_t *)newbuf, finallen);
-        if (file)
-          file.close();
-        free(newbuf);
+          int finallen = base64_decode_chars((char *)data.c_str() + 22, len - 22, (char *)newbuf);
+          //
+          // write the gif
+          //
+           String filename = "/gif/" + id + ".gif";
+          File file = SPIFFS.open(filename, "w");
+          if (file)
+            file.write((const uint8_t *)newbuf, finallen);
+          if (file)
+            file.close();
+          free(newbuf);
         }
         request->send(200, "text/html", "/gif/default.gif");
 
@@ -949,7 +982,7 @@ void initSerial() {
 }
 DisplayHandler *theDisplay = NULL;
 
-int sendmorse = 0;
+
 
 void setup() {
   initSerial();
