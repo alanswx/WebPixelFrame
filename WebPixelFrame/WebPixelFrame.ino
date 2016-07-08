@@ -63,7 +63,7 @@ class DisplayHandler: public AsyncWebHandler {
       pixelGIF = new DisplayPixelsAnimatedGIF();
       pixelLive = new DisplayPixelsLive();
       pixelClock = new DisplayClock(timeClient);
-      curPixel = pixelClock;
+      curPixel = pixelText;
       strip->Begin();
       //  strip->Show();
       sendmorse = false;
@@ -169,6 +169,10 @@ class DisplayHandler: public AsyncWebHandler {
       return val;
     }
 
+    void setScrollText(String text)
+    {
+       pixelText->SetText(text.c_str());
+    }
     void setScrollText(AsyncWebServerRequest *request)
     {
 
@@ -911,8 +915,15 @@ static void _u0_putc(char c) {
   while (((U0S >> USTXC) & 0x7F) == 0x7F);
   U0F = c;
 }
+
+DisplayHandler *theDisplay = NULL;
 //callback notifying us of the need to save config
 void saveConfigCallback () {
+     
+  String ip=WiFi.localIP().toString();
+  theDisplay->setScrollText(ip.c_str());
+
+  
   Serial.println("save config");
   // Setup MDNS responder
   String softap_new_ssid = "WebPixelFrame" + String("_") + String(ESP.getChipId());
@@ -930,7 +941,7 @@ void initSerial() {
   ets_install_putc1((void *) &_u0_putc);
   system_set_os_print(1);
 }
-DisplayHandler *theDisplay = NULL;
+
 
 
 
@@ -950,7 +961,8 @@ void setup() {
   wifiManager.setSaveConfigCallback(saveConfigCallback);
   // modeless:
   wifiManager.startConfigPortalModeless(softap_new_ssid.c_str(), "");
-
+saveConfigCallback(); // this seems broken..
+// MDNS will only work if we have the wifi in STA mode.. should we do that?
 
   ArduinoOTA.setPassword((const char *)"");
   ArduinoOTA.begin();

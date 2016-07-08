@@ -23,4 +23,4 @@ curl -F "file=@$PWD/iconmonstr-lock-3-icon.svg;filename=/iconmonstr-lock-3-icon.
 #gzip po/8
 for file in `ls -A1 po`; do gzip po/$file ; done
 curl -F "file=@$PWD/pindex.txt;filename=/pindex.txt" http://admin:admin@$IP/edit
-for file in `ls -A1 po`; do curl -F "file=@$PWD/po/$file;filename=/po/$file" $IP/edit; done
+for file in `ls -A1 po`; do echo curl -F "file=@$PWD/po/$file;filename=/po/$file" http://admin:admin@$IP/edit; done
