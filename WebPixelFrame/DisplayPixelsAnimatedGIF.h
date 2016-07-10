@@ -74,14 +74,9 @@ class DisplayPixelsAnimatedGIF : public DisplayPixels {
         unsigned long result = gifPlayer->drawFrame();
         if (result == ERROR_FINISHED)
         {
+
           Serial.println("gif finished");
-          // reset the gif decoder?
-          //theFile.close();
-          theFile.seek(0, SeekSet);
-          gifPlayer->parseGifHeader();
-          gifPlayer->parseLogicalScreenDescriptor();
-          gifPlayer->parseGlobalColorTable();
-          //SetGIF(_file);
+          next();
         }
         ESP.wdtFeed();
         lastFrame = millis();
@@ -101,12 +96,70 @@ class DisplayPixelsAnimatedGIF : public DisplayPixels {
       gifPlayer->parseGlobalColorTable();
       lastFrame = millis();
     }
+
+
+    void SetDIR(String path)
+    {
+      _path = path;
+      next();
+    }
+    void next()
+    {
+      if (_path.length() == 0)
+      {
+        theFile.seek(0, SeekSet);
+        gifPlayer->parseGifHeader();
+        gifPlayer->parseLogicalScreenDescriptor();
+        gifPlayer->parseGlobalColorTable();
+        return;
+      }
+      Dir dir = SPIFFS.openDir(_path);
+      while (dir.next()) {
+
+        File entry = dir.openFile("r");
+        if (_file.length() == 0)
+        {
+          SetGIF(entry.name());
+          entry.close();
+          
+        }
+        else
+        {
+          if (_file == entry.name())
+          {
+            entry.close();
+            // found current file
+            if (dir.next())
+            {
+              File entry = dir.openFile("r");
+              SetGIF(entry.name());
+              entry.close();
+            }
+            else
+            {
+              // back to beginning
+              Dir dir = SPIFFS.openDir(_path);
+              if (dir.next())
+              {
+                File entry = dir.openFile("r");
+                SetGIF(entry.name());
+                entry.close();
+              }
+
+            }
+          }
+        }
+      }
+    }
+
   private:
     String _file;
+    String _path;
     File theFile;
     GifPlayer *gifPlayer;
     int lastFrame = -1;
 };
+
 
 
 

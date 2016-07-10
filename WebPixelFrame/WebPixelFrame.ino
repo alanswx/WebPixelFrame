@@ -111,6 +111,8 @@ class DisplayHandler: public AsyncWebHandler {
         return true;
       else if (request->method() == HTTP_GET && request->url() == "/morse")
         return true;
+      else if (request->method() == HTTP_GET && request->url() == "/gifs")
+        return true;
       else if (request->method() == HTTP_GET && request->url().startsWith("/gif/"))
         return true;
       if (request->method() == HTTP_POST && request->url() == "/setpixels")
@@ -171,7 +173,7 @@ class DisplayHandler: public AsyncWebHandler {
 
     void setScrollText(String text)
     {
-       pixelText->SetText(text.c_str());
+      pixelText->SetText(text.c_str());
     }
     void setScrollText(AsyncWebServerRequest *request)
     {
@@ -227,7 +229,22 @@ class DisplayHandler: public AsyncWebHandler {
 
     }
 
-    void handleSetPixels(AsyncWebServerRequest *request)
+    void handleGifs(AsyncWebServerRequest *request)
+    {
+      os_printf("inside handleGifs \n");
+      if (request->hasParam("dir") ) {
+        String path = request->getParam("dir")->value();
+        curPixel->stop();
+        pixelGIF->SetDIR(path);
+
+        curPixel = pixelGIF;
+        request->send(200, "text/html", "started gif loop");
+
+      }
+      else
+        request->send(500, "text/plain", "BAD ARGS");
+    }
+    void handleSetPixels(AsyncWebServerRequest * request)
     {
 
 
@@ -294,6 +311,8 @@ class DisplayHandler: public AsyncWebHandler {
         handleClearScreen(request);
       else if (request->method() == HTTP_GET && request->url() == "/scroll")
         setScrollText(request);
+      else if (request->method() == HTTP_GET && request->url() == "/gifs")
+        handleGifs(request);
       else if (request->method() == HTTP_GET && request->url().startsWith("/gif/"))
         handleGif(request);
       else if (request->method() == HTTP_GET && request->url() == "/morse")
@@ -919,14 +938,14 @@ static void _u0_putc(char c) {
 DisplayHandler *theDisplay = NULL;
 //callback notifying us of the need to save config
 void saveConfigCallback () {
-     
-  String ip=WiFi.localIP().toString();
+
+  String ip = WiFi.localIP().toString();
   theDisplay->setScrollText(ip.c_str());
 
-  
+
   Serial.println("save config");
   // Setup MDNS responder
-  String softap_new_ssid = "WebPixelFrame" + String("_") + String(ESP.getChipId());
+  String softap_new_ssid = "WebPixelFrame" + String("-") + String(ESP.getChipId());
 
   if (!MDNS.begin(softap_new_ssid.c_str()/*myHostname*/)) {
     Serial.println("Error setting up MDNS responder!");
@@ -961,8 +980,8 @@ void setup() {
   wifiManager.setSaveConfigCallback(saveConfigCallback);
   // modeless:
   wifiManager.startConfigPortalModeless(softap_new_ssid.c_str(), "");
-saveConfigCallback(); // this seems broken..
-// MDNS will only work if we have the wifi in STA mode.. should we do that?
+  saveConfigCallback(); // this seems broken..
+  // MDNS will only work if we have the wifi in STA mode.. should we do that?
 
   ArduinoOTA.setPassword((const char *)"");
   ArduinoOTA.begin();
