@@ -963,6 +963,7 @@ void initSerial() {
 
 
 
+String softap_new_ssid = "WebPixelFrame" + String("_") + String(ESP.getChipId());
 
 void setup() {
   initSerial();
@@ -972,7 +973,7 @@ void setup() {
   //WiFi.disconnect(true);
   //MDNS?
 
-  String softap_new_ssid = "WebPixelFrame" + String("_") + String(ESP.getChipId());
+
 
 
   // modal:
@@ -999,7 +1000,7 @@ void setup() {
   server.addHandler(theDisplay).setFilter(ON_STA_FILTER);
 
 
-  server.serveStatic("/fs", SPIFFS, "/").setFilter(ON_STA_FILTER);
+  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.htm").setFilter(ON_STA_FILTER);
   server.addHandler(new SPIFFSEditor(http_username, http_password)).setFilter(ON_STA_FILTER);
 
   // how do we filter the notfound correctly?
