@@ -14,3 +14,4 @@ Piskel is a submodule. Make sure to clone the repo with --recursive:
 ``git clone --recursive git://github.com/alanswx/WebPixelFrame.git``
 
 
+[New Mac driver for Sierra](https://tzapu.com/ch340-ch341-serial-adapters-macos-sierra/)
