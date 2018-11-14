@@ -1,11 +1,40 @@
+
+#ifdef ESP32
+#include <WiFi.h>
+#include <AsyncTCP.h>
+
+#include <ESPmDNS.h>
+
+#define os_printf(...) Serial.printf( __VA_ARGS__ )
+
+
+
+
+#elif defined(ESP8266)
 #include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
 #include <ESP8266mDNS.h>
+
+#if 0
+#ifdef DEBUG_ESP_PORT
+#define DEBUG_MSG(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
+#else
+#define DEBUG_MSG(...)
+#endif
+#define os_printf(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
+#endif
+
+
+#else
+#error Platform not supported
+#endif
 #include <ArduinoOTA.h>
 #include <FS.h>
 
-#include <ESPAsyncTCP.h>   // https://github.com/me-no-dev/ESPAsyncTCP
+//#include <ESPAsyncTCP.h>   // https://github.com/me-no-dev/ESPAsyncTCP
 #include <ESPAsyncWebServer.h>  // https://github.com/me-no-dev/ESPAsyncWebServer/
 #include <ESPAsyncWiFiManager.h>  // https://github.com/alanswx/ESPAsyncWiFiManager
+#include <SPIFFSEditor.h>
 
 #include <NeoPixelBus.h>   // https://github.com/Makuna/NeoPixelBus
 #include <NTPClient.h>   // https://github.com/arduino-libraries/NTPClient
@@ -23,6 +52,9 @@
 
 NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> *strip = new NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> (PixelCount, 2);
 
+
+
+
 #if 0
 
 uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
@@ -34,6 +66,17 @@ uint16_t ourLayoutMapCallback(int16_t x, int16_t y)
 
 #endif
 
+
+
+#ifndef ESP32
+//Use the internal hardware buffer
+static void _u0_putc(char c) {
+  while (((U0S >> USTXC) & 0x7F) == 0x7F);
+  U0F = c;
+}
+#endif
+
+
 class DisplayHandler: public AsyncWebHandler {
     DisplayPixelsText *pixelText;
     DisplayPixelsAnimatedGIF *pixelGIF;
@@ -42,7 +85,9 @@ class DisplayHandler: public AsyncWebHandler {
     DisplayClock *pixelClock ;
     WiFiUDP ntpUDP;
 
+#ifdef ESP8266
     const int relayPin = D1;
+#endif
     const long interval = 200;  // pause for two seconds
 
     // By default 'time.nist.gov' is used with 60 seconds update interval and
@@ -66,8 +111,10 @@ class DisplayHandler: public AsyncWebHandler {
       curPixel = pixelText;
       strip->Begin();
       //  strip->Show();
+      #ifdef ESP8266
       sendmorse = false;
       pinMode(relayPin, OUTPUT);
+      #endif
 
     }
 
@@ -76,13 +123,13 @@ class DisplayHandler: public AsyncWebHandler {
       curPixel->stop();
     }
 
-    void loop()
+    void ourloop()
     {
-      //  os_printf("loop: \n");
       timeClient->update();
       if (curPixel) curPixel->UpdateAnimation();
       strip->Show();
 
+#ifdef ESP8266
       if (sendmorse && morsecount)
       {
         os_printf("inside loop - sendmorse\n");
@@ -92,10 +139,11 @@ class DisplayHandler: public AsyncWebHandler {
         digitalWrite(relayPin, LOW);  // turn off relay with voltage LOW
         os_printf("low\n");
         delay(interval);              // pause
-
+  
         if (morsecount == 0) sendmorse = false;
         morsecount--;
       }
+#endif
 
     }
 
@@ -115,7 +163,7 @@ class DisplayHandler: public AsyncWebHandler {
         return true;
       else if (request->method() == HTTP_GET && request->url().startsWith("/gif/"))
         return true;
-      if (request->method() == HTTP_POST && request->url() == "/setpixels")
+      if (request->method() == HTTP_POST && request->url() == "/setpixels2")
         return true;
       return false;
     }
@@ -247,9 +295,17 @@ class DisplayHandler: public AsyncWebHandler {
     void handleSetPixels(AsyncWebServerRequest * request)
     {
 
+  os_printf("inside handleSetPixels\n");
+  os_printf("inside handleSetPixels2\n");
+  os_printf("inside handleSetPixels request=%x\n",request);
+int args = request->args();
+for(int i=0;i<args;i++){
+  os_printf("ARG[%s]: %s\n", request->argName(i).c_str(), request->arg(i).c_str());
+}
+  os_printf("inside handleSetPixels request=%x\n",request);
 
-      /*
             int params = request->params();
+  os_printf("params = %d\n",params);
             for (int i = 0; i < params; i++) {
               AsyncWebParameter* p = request->getParam(i);
               if (p->isFile()) {
@@ -260,7 +316,7 @@ class DisplayHandler: public AsyncWebHandler {
                 os_printf("_GET[%s]: %s\n", p->name().c_str(), p->value().c_str());
               }
             }
-      */
+      
       AsyncWebParameter* p = NULL;
       if (request->hasParam("pixels", true))
         p = request->getParam("pixels", true);
@@ -291,7 +347,7 @@ class DisplayHandler: public AsyncWebHandler {
             hb[2] = 0;
             int b = hex2int(hb, 2);
 
-            //os_printf("%d %x %x%x%x\n",x,y,r,g,b);
+            os_printf("%d %x %x%x%x\n",x,y,r,g,b);
             pixelLive->SetPixel(x, y, r, g, b);
           }
         }
@@ -317,7 +373,7 @@ class DisplayHandler: public AsyncWebHandler {
         handleGif(request);
       else if (request->method() == HTTP_GET && request->url() == "/morse")
         handleMorse(request);
-      else if (request->method() == HTTP_POST && request->url() == "/setpixels")
+      else if (request->method() == HTTP_POST && request->url() == "/setpixels2")
         handleSetPixels(request);
     }
 
@@ -478,6 +534,8 @@ class PiskelHandler: public AsyncWebHandler {
     int findNextFileNumber()
     {
       int largestnumber = 0;
+
+      #ifdef ESP8266
       Dir dir = SPIFFS.openDir("/piskeldata/");
       while (dir.next()) {
         String filenumberS = numberFromPath(dir.fileName());
@@ -487,14 +545,29 @@ class PiskelHandler: public AsyncWebHandler {
         filenumber++;
         if (filenumber > largestnumber) largestnumber = filenumber;
       }
-      //DBG_OUTPUT_PORT.print("largestnumber: ");
-      //DBG_OUTPUT_PORT.println(largestnumber);
+      DBG_OUTPUT_PORT.print("largestnumber: ");
+      DBG_OUTPUT_PORT.println(largestnumber);
       return largestnumber;
+      #else
+        File dir = SPIFFS.open("/piskeldata/");
+        dir.rewindDirectory();
+        while (File entry = dir.openNextFile())
+        {
+             String filenumberS = numberFromPath(entry.name());
+              int filenumber = filenumberS.toInt();
+              filenumber++;
+              if (filenumber > largestnumber) largestnumber = filenumber;
+        }
+          return largestnumber;
+
+      #endif
     }
 
     void handlePiskelUpload(AsyncWebServerRequest *request, String id) {
-
+      os_printf("handlePiskelUpload\n");
+      
       int params = request->params();
+      os_printf("handlePiskelUpload: params:%d\n",params);
       for (int i = 0; i < params; i++) {
         AsyncWebParameter* p = request->getParam(i);
         if (p->isFile()) {
@@ -541,9 +614,9 @@ class PiskelHandler: public AsyncWebHandler {
     }
 
     void handlePiskelSave(AsyncWebServerRequest * request, String id) {
-      //DBG_OUTPUT_PORT.println("handlePiskelSave");
+      DBG_OUTPUT_PORT.println("handlePiskelSave");
 
-      /*
+      
           int params = request->params();
           for (int i = 0; i < params; i++) {
             AsyncWebParameter* p = request->getParam(i);
@@ -556,8 +629,7 @@ class PiskelHandler: public AsyncWebHandler {
             }
           }
 
-      */
-      //String result;
+           //String result;
       String filename = "";
       if (id)
       {
@@ -671,10 +743,11 @@ class PiskelHandler: public AsyncWebHandler {
       _theDisplayHandler->stop();
 
       int len = 0;
+      File tempFile = SPIFFS.open("/piskelindex.json", "w");
 
+      #ifdef ESP8266
       Dir dir = SPIFFS.openDir("/piskeldata/");
 
-      File tempFile = SPIFFS.open("/piskelindex.json", "w");
 
       tempFile.print("[");
       int first = 1;
@@ -705,7 +778,43 @@ class PiskelHandler: public AsyncWebHandler {
       tempFile.print("]");
       os_printf("larger than: %d (4096)\n", len);
 
+
+      #else
+      
+      File dir = SPIFFS.open("/piskeldata/");
+      tempFile.print("[");
+      int first = 1;
+      while (File entry = dir.openNextFile()) {
+        if (first)
+          first = 0;
+        else
+          tempFile.print( ",");
+
+
+        String number = numberFromPath(entry.name());
+        File file = SPIFFS.open(entry.name(), "r");
+
+        tempFile.print( "{\"" + number + "\":");
+        //  response->print(dir.fileName());
+        char *buf = (char*)malloc(file.size() + 1);
+        if (buf) {
+          file.read((uint8_t *)buf, file.size());
+          len += file.size();
+          buf[file.size()] = '\0';
+        }
+        tempFile.print(buf);
+        file.close();
+        free(buf);
+        tempFile.print("}");
+
+      }
+      tempFile.print("]");
+      os_printf("larger than: %d (4096)\n", len);
+      
+      #endif
+      
       tempFile.close();
+
       request->send(SPIFFS, "/piskelindex.json", "text/json");
 
 
@@ -789,15 +898,15 @@ class PiskelHandler: public AsyncWebHandler {
 
 
 
-
+#if 1
 // WEB HANDLER IMPLEMENTATION
-class SPIFFSEditor: public AsyncWebHandler {
+class OurSPIFFSEditor: public AsyncWebHandler {
   private:
     String _username;
     String _password;
     bool _uploadAuthenticated;
   public:
-    SPIFFSEditor(String username = String(), String password = String()): _username(username), _password(password), _uploadAuthenticated(false) {}
+    OurSPIFFSEditor(String username = String(), String password = String()): _username(username), _password(password), _uploadAuthenticated(false) {}
     bool canHandle(AsyncWebServerRequest *request) {
       if (request->method() == HTTP_GET && request->url() == "/edit" && (SPIFFS.exists("/edit.htm") || SPIFFS.exists("/edit.htm.gz")))
         return true;
@@ -838,6 +947,10 @@ class SPIFFSEditor: public AsyncWebHandler {
         if (request->hasParam("dir")) {
           String path = request->getParam("dir")->value();
           os_printf("LIST path:[%s]\n", path.c_str());
+
+
+          #ifdef ESP8266
+          
           Dir dir = SPIFFS.openDir(path);
           path = String();
 
@@ -858,6 +971,31 @@ class SPIFFSEditor: public AsyncWebHandler {
             response->print( "\"}");
             entry.close();
           }
+          
+          #else
+          File dir = SPIFFS.open(path);
+          path = String();
+
+
+          AsyncResponseStream *response = request->beginResponseStream("application/javascript", 4096);
+          int start = 1;
+          response->print( "[");
+          while (File entry = dir.openNextFile()) {
+
+            //File entry = dir.openFile("r");
+            if (!start) response->print( ","); else start = 0;
+
+            bool isDir = false;
+            response->print("{\"type\":\"");
+            response->print((isDir) ? "dir" : "file");
+            response->print( "\",\"name\":\"");
+            response->print( String(entry.name()).substring(1));
+            response->print( "\"}");
+            entry.close();
+          }
+          
+          #endif
+          
           response->print("]");
           request->send(response);
 
@@ -873,7 +1011,13 @@ class SPIFFSEditor: public AsyncWebHandler {
         request->send(SPIFFS, path, String(), request->hasParam("download"));
       } else if (request->method() == HTTP_DELETE) {
         if (request->hasParam("path", true)) {
-          ESP.wdtDisable(); SPIFFS.remove(request->getParam("path", true)->value()); ESP.wdtEnable(10);
+          #if defined(ESP8266)
+          ESP.wdtDisable(); 
+          #endif
+          SPIFFS.remove(request->getParam("path", true)->value()); 
+          #if defined(ESP8266)
+          ESP.wdtEnable(10);
+          #endif
           request->send(200, "", "DELETE: " + request->getParam("path", true)->value());
         } else
           request->send(404);
@@ -909,12 +1053,22 @@ class SPIFFSEditor: public AsyncWebHandler {
         request->_tempFile = SPIFFS.open(filename, "w");
       }
       if (_uploadAuthenticated && request->_tempFile && len) {
-        ESP.wdtDisable(); request->_tempFile.write(data, len); ESP.wdtEnable(10);
-      }
+        #if defined(ESP8266)
+        ESP.wdtDisable(); 
+        #endif
+        request->_tempFile.write(data, len); 
+        #if defined(ESP8266)
+        ESP.wdtEnable(10);
+        #endif
+}
       if (_uploadAuthenticated && final)
         if (request->_tempFile) request->_tempFile.close();
     }
 };
+#endif
+
+
+void initSerial(void);
 
 
 // SKETCH BEGIN
@@ -926,17 +1080,18 @@ const char* http_username = "admin";
 const char* http_password = "admin";
 
 
-extern "C" void system_set_os_print(uint8 onoff);
-extern "C" void ets_install_putc1(void* routine);
-
-//Use the internal hardware buffer
-static void _u0_putc(char c) {
-  while (((U0S >> USTXC) & 0x7F) == 0x7F);
-  U0F = c;
-}
+  #ifdef ESP8266
+  String softap_new_ssid = "WebPixelFrame" + String("-") + String(ESP.getChipId());
+  #else
+  String softap_new_ssid = "WebPixelFrame" + String("-") + String((uint16_t)(ESP.getEfuseMac()>>32));
+  #endif
 
 DisplayHandler *theDisplay = NULL;
 //callback notifying us of the need to save config
+
+
+
+
 void saveConfigCallback () {
 
   String ip = WiFi.localIP().toString();
@@ -945,7 +1100,13 @@ void saveConfigCallback () {
 
   Serial.println("save config");
   // Setup MDNS responder
+#if 0
+  #ifdef ESP8266
   String softap_new_ssid = "WebPixelFrame" + String("-") + String(ESP.getChipId());
+  #else
+  String softap_new_ssid = "WebPixelFrame" + String("-") + String((uint16_t)(ESP.getEfuseMac()>>32));
+  #endif
+#endif
 
   if (!MDNS.begin(softap_new_ssid.c_str()/*myHostname*/)) {
     Serial.println("Error setting up MDNS responder!");
@@ -955,24 +1116,31 @@ void saveConfigCallback () {
     MDNS.addService("http", "tcp", 80);
   }
 }
-void initSerial() {
-  Serial.begin(115200);
-  ets_install_putc1((void *) &_u0_putc);
-  system_set_os_print(1);
-}
 
 
 
-String softap_new_ssid = "WebPixelFrame" + String("_") + String(ESP.getChipId());
+
+
 
 void setup() {
   initSerial();
+
+  os_printf("setup called - after initSerial\n");
+  os_printf("setup called - 1\n");
+
+  Serial.println("SP-1");
   SPIFFS.begin();
+  Serial.println("SP-2");
+    os_printf("setup called - 1.1\n");
+  Serial.println("SP-3");
+
   theDisplay = new DisplayHandler();
+    os_printf("setup called - 1.2\n");
 
   //WiFi.disconnect(true);
   //MDNS?
 
+  os_printf("setup called - 2\n");
 
 
 
@@ -987,6 +1155,7 @@ void setup() {
   ArduinoOTA.setPassword((const char *)"");
   ArduinoOTA.begin();
   //Serial.printf("format start\n"); SPIFFS.format();  Serial.printf("format end\n");
+  os_printf("setup called - 3\n");
 
   POHandler *thePOHandler = new POHandler();
   PiskelHandler *thePiskelHandler = new PiskelHandler(thePOHandler, theDisplay);
@@ -1001,7 +1170,13 @@ void setup() {
 
 
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.htm").setFilter(ON_STA_FILTER);
-  server.addHandler(new SPIFFSEditor(http_username, http_password)).setFilter(ON_STA_FILTER);
+  #ifdef ESP32
+    server.addHandler(new SPIFFSEditor(SPIFFS,http_username,http_password)).setFilter(ON_STA_FILTER);
+ #else
+ server.addHandler(new OurSPIFFSEditor(http_username,http_password)).setFilter(ON_STA_FILTER);
+ #endif
+    //SPIFFSEditor(const fs::FS& fs, const String& username=String(), const String& password=String());
+//  server.addHandler(new SPIFFSEditor(http_username, http_password)).setFilter(ON_STA_FILTER);
 
   // how do we filter the notfound correctly?
   // this is picked up by the AsyncWiFiManager - if we set it here, we will lose the captive portal for all the 404 urls
@@ -1068,14 +1243,30 @@ void setup() {
       os_printf("BodyEnd: %u\n", total);
   });
 
+    // Send a POST request to <IP>/post with a form field message set to <message>
+    server.on("/setpixels", HTTP_POST, [](AsyncWebServerRequest *request){
+
+        String message;
+        if (request->hasParam("pixels", true)) {
+            message = request->getParam("pixels", true)->value();
+        } else {
+            message = "No message sent";
+        }
+        os_printf("who knows!");
+      theDisplay->handleSetPixels(request);
+//        request->send(200, "text/plain", "Hello, pixels: " + message);
+    });
+
   //get heap status, analog input value and all GPIO statuses in one json call
   server.on("/all", HTTP_GET, [](AsyncWebServerRequest * request) {
 
 
     String json = "{";
     json += "\"heap\":" + String(ESP.getFreeHeap());
+    #ifdef ESP8266
     json += ", \"analog\":" + String(analogRead(A0));
     json += ", \"gpio\":" + String((uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16)));
+    #endif
     json += "}";
     request->send(200, "text/json", json);
     json = String();
@@ -1086,13 +1277,45 @@ void setup() {
   //server.begin();
 
 
+  os_printf("setup called - 4 - exiting\n");
 
 }
 
 void loop() {
   wifiManager.loop();
   dns.processNextRequest();
+  #ifdef ESP8266
   MDNS.update();
+  #endif
   ArduinoOTA.handle();
-  if (theDisplay) theDisplay->loop();
+  if (theDisplay) theDisplay->ourloop();
 }
+
+#ifdef ESP32
+void initSerial() {
+  Serial.begin(115200);
+}
+#endif
+
+
+#ifdef ESP8266
+#ifdef __cplusplus
+extern "C" {
+#endif
+void system_set_os_print(uint8 onoff);
+void ets_install_putc1(void* routine);
+#ifdef __cplusplus
+}
+#endif
+
+void initSerial() {
+  Serial.begin(115200);
+  #ifndef ESP32
+
+  ets_install_putc1((void *) &_u0_putc);
+    system_set_os_print(1);
+
+ #endif
+}
+
+#endif

@@ -10,7 +10,8 @@ const uint8_t TileHeight = 1;
 
 const uint16_t PixelCount = PanelWidth * PanelHeight * TileWidth * TileHeight;
 
-typedef RowMajorAlternatingLayout MyPanelLayout;
+typedef ColumnMajorAlternating90Layout MyPanelLayout;
+//typedef RowMajor90Layout MyPanelLayout;
 typedef NeoGrbFeature MyPixelColorFeature;
 
 extern NeoPixelBus<MyPixelColorFeature, Neo800KbpsMethod> *strip;
@@ -33,4 +34,3 @@ class DisplayPixels
   protected:
    
 };
-

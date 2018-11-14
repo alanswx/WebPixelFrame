@@ -15,3 +15,9 @@ Piskel is a submodule. Make sure to clone the repo with --recursive:
 
 
 [New Mac driver for Sierra](https://tzapu.com/ch340-ch341-serial-adapters-macos-sierra/)
+
+## Notes:
+
+Make sure the pixel display on ESP8266 plugs into the RX pin - that is where the DMA is.
+
+Make sure the SPIFFS is larger than 1M

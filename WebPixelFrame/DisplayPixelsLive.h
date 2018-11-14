@@ -11,7 +11,9 @@ class DisplayPixelsLive : public DisplayPixels {
 
     virtual void UpdateAnimation(void)
     {
+      #if defined(ESP8266)
       ESP.wdtFeed();
+      #endif
      
     }
 
@@ -37,7 +39,3 @@ class DisplayPixelsLive : public DisplayPixels {
   private:
     RgbColor black;
 };
-
-
-
-

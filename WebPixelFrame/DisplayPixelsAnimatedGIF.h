@@ -1,12 +1,16 @@
 #pragma once
-
+#ifdef ESP32
+#include "SPIFFS.h"
+#endif
 #include <NeoPixelBus.h>
 
 extern void updateScreenCallbackS(void);
 
 void drawPixel(uint16_t x, uint16_t y, uint8_t red, uint8_t green, uint8_t blue)
 {
+  #if defined(ESP8266)
   ESP.wdtFeed();
+  #endif
   RgbColor color(red, green, blue);
   strip->SetPixelColor(mosaic.Map(x, y), color);
 }
@@ -15,7 +19,9 @@ void drawPixel(uint16_t x, uint16_t y, uint8_t red, uint8_t green, uint8_t blue)
 
 void fillScreen( uint8_t red, uint8_t green, uint8_t blue)
 {
+  #if defined(ESP8266)
   ESP.wdtFeed();
+  #endif
   RgbColor color(red, green, blue);
   strip->ClearTo( color);
 }
@@ -41,7 +47,9 @@ class DisplayPixelsAnimatedGIF : public DisplayPixels {
     virtual void UpdateAnimation(void)
     {
       if (gifPlayer == NULL) return;
-      ESP.wdtFeed();
+  #if defined(ESP8266)
+  ESP.wdtFeed();
+  #endif
       //int result = processGIFFile(_file.c_str());
 
       //check to see if framedelay has passed
@@ -56,7 +64,9 @@ class DisplayPixelsAnimatedGIF : public DisplayPixels {
           Serial.println("gif finished");
           next();
         }
-        ESP.wdtFeed();
+  #if defined(ESP8266)
+  ESP.wdtFeed();
+  #endif
         lastFrame = millis();
       }
     }
@@ -91,10 +101,11 @@ class DisplayPixelsAnimatedGIF : public DisplayPixels {
         gifPlayer->parseGlobalColorTable();
         return;
       }
+ #ifdef ESP8266     
       Dir dir = SPIFFS.openDir(_path);
       while (dir.next()) {
-
         File entry = dir.openFile("r");
+
         if (_file.length() == 0)
         {
           SetGIF(entry.name());
@@ -126,8 +137,19 @@ class DisplayPixelsAnimatedGIF : public DisplayPixels {
 
             }
           }
+
         }
       }
+ #else
+      File dir = SPIFFS.open(_path);
+      dir.rewindDirectory();
+      while (File entry = dir.openNextFile())
+      {
+              SetGIF(entry.name());
+              entry.close();
+      }
+ #endif
+
     }
 
   private:
@@ -137,8 +159,3 @@ class DisplayPixelsAnimatedGIF : public DisplayPixels {
     GifPlayer *gifPlayer;
     int lastFrame = -1;
 };
-
-
-
-
-
