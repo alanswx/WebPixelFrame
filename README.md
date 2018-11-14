@@ -39,7 +39,6 @@ If you Arduino IDE is not already updated to program the WeMo board, follow thes
 
 - [Install WeMo Support](https://wiki.wemos.cc/tutorials:get_started:get_started_in_arduino) - Follow the instructions at this page to install get the Arduino app able to program WeMo D1 Mini boards.
 - [Install SPIFFS Uploader](https://github.com/esp8266/Arduino/blob/master/doc/filesystem.rst#uploading-files-to-file-system) - This project requires this tool to uploaded the web page code to the web server we install on the WeMo board.
->>>>>>> 965b4f2aa20fff3ee15e92bcbca546d158ce5cfa
 
 
 ## Notes:
