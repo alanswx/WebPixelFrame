@@ -80,6 +80,9 @@ static void _u0_putc(char c) {
 #endif
 
 
+
+
+
 class DisplayHandler: public AsyncWebHandler {
     DisplayPixelsText *pixelText;
     DisplayPixelsAnimatedGIF *pixelGIF;
@@ -472,24 +475,8 @@ class POHandler: public AsyncWebHandler {
         return;
       }
 
-      os_printf("send: SPIFFS [%s] [%s] [blank] [download?] [%s]\n", short_name.c_str(), path.c_str(),_setContentType(path).c_str());
-
-
-       //AsyncWebServerResponse *response = request->beginResponse(SPIFFS, short_name, _setContentType(path));
-      //request->send(response);
-      //request->_tempFile = SPIFFS.open(short_name, "r");
-      //os_printf("FILEINFO:%d %s\n",request->_tempFile.size(),request->_tempFile.name());
-      //request->send(request->_tempFile, request->_tempFile.name(), String(), request->hasParam("download"));
-      //request->send(theFile, short_name, _setContentType(path), 0);
-
-      //File theFile = SPIFFS.open(short_name,"r");
-      //if (theFile
-      //request->send(theFile, short_name, _setContentType(path), 0);
-
-      // original:
+      //os_printf("send: SPIFFS [%s] [%s] [blank] [download?] [%s]\n", short_name.c_str(), path.c_str(),_setContentType(path).c_str());
        request->send(SPIFFS, short_name, _setContentType(path),false);
-      //request->send(SPIFFS, short_name, String(), request->hasParam("download"));
-
 
       return ;
 
@@ -572,24 +559,20 @@ class PiskelHandler: public AsyncWebHandler {
       DBG_OUTPUT_PORT.println(largestnumber);
       return largestnumber;
       #else
- if (!SPIFFS.exists("/piskeldata/"))
- {
-  return 0;
- }
+        if (!SPIFFS.exists("/piskeldata/"))
+        {
+            return 0;
+        }
       
         File dir = SPIFFS.open("/piskeldata/");
-
-
-    if(!dir){
-        Serial.println("- failed to open directory");
-        return 0;
-    }
-    if(!dir.isDirectory()){
-        Serial.println(" - not a directory");
-        return 0;
-    }
-
-        
+        if(!dir){
+          Serial.println("- failed to open directory");
+          return 0;
+        }
+        if(!dir.isDirectory()){
+            Serial.println(" - not a directory");
+          return 0;
+        }
         dir.rewindDirectory();
         while (File entry = dir.openNextFile())
         {
@@ -598,7 +581,7 @@ class PiskelHandler: public AsyncWebHandler {
               filenumber++;
               if (filenumber > largestnumber) largestnumber = filenumber;
         }
-          return largestnumber;
+        return largestnumber;
 
       #endif
     }
@@ -838,14 +821,14 @@ class PiskelHandler: public AsyncWebHandler {
 
 
       #else
-   {     
+      {     
 
       File dir = SPIFFS.open("/piskeldata");
        os_printf("inside loop dir: %x\n",dir);
 
-    if(!dir.isDirectory()){
+      if(!dir.isDirectory()){
         Serial.println(" - not a directory");
-    }
+      }
 
       tempFile.print("[");
       int first = 1;
@@ -885,7 +868,7 @@ class PiskelHandler: public AsyncWebHandler {
       }
       tempFile.print("]");
       os_printf("larger than: %d (4096)\n", len);
-      
+      }
       #endif
       
       tempFile.close();
@@ -973,7 +956,7 @@ class PiskelHandler: public AsyncWebHandler {
 
 
 
-#if 1
+#if 0
 // WEB HANDLER IMPLEMENTATION
 class OurSPIFFSEditor: public AsyncWebHandler {
   private:
@@ -1321,9 +1304,9 @@ void saveConfigCallback () {
   }
 }
 
-
+#if 0
 void SPIFFSInfo(){
-  FSInfo fs_info;
+FSInfo fs_info;
 SPIFFS.info(fs_info);
 
 float fileTotalKB = (float)fs_info.totalBytes / 1024.0;
@@ -1366,7 +1349,7 @@ Serial.printf("__________________________\n\n");
 
 }
 
-
+#endif
 
 void setup() {
   
@@ -1374,7 +1357,7 @@ void setup() {
 
 #if 1
   SPIFFS.begin();
-  SPIFFSInfo();
+  //SPIFFSInfo();
   theDisplay = new DisplayHandler();
 
   //WiFi.disconnect(true);
