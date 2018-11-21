@@ -1281,20 +1281,20 @@ void initSerial(void);
 
 
 // SKETCH BEGIN
-#if 1
+
 AsyncWebServer server(80);
 DNSServer dns;
 AsyncWiFiManager wifiManager(&server, &dns);
-#endif
+
 const char* http_username = "admin";
 const char* http_password = "admin";
 
 
-  #ifdef ESP8266
-  String softap_new_ssid = "WebPixelFrame" + String("-") + String(ESP.getChipId());
-  #else
-  String softap_new_ssid = "WebPixelFrame" + String("-") + String((uint16_t)(ESP.getEfuseMac()>>32));
-  #endif
+#ifdef ESP8266
+ String softap_new_ssid = "WebPixelFrame" + String("-") + String(ESP.getChipId());
+#else
+ String softap_new_ssid = "WebPixelFrame" + String("-") + String((uint16_t)(ESP.getEfuseMac()>>32));
+#endif
 
 DisplayHandler *theDisplay = NULL;
 //callback notifying us of the need to save config
@@ -1310,13 +1310,7 @@ void saveConfigCallback () {
 
   Serial.println("save config");
   // Setup MDNS responder
-#if 0
-  #ifdef ESP8266
-  String softap_new_ssid = "WebPixelFrame" + String("-") + String(ESP.getChipId());
-  #else
-  String softap_new_ssid = "WebPixelFrame" + String("-") + String((uint16_t)(ESP.getEfuseMac()>>32));
-  #endif
-#endif
+
 
   if (!MDNS.begin(softap_new_ssid.c_str()/*myHostname*/)) {
     Serial.println("Error setting up MDNS responder!");
@@ -1417,11 +1411,11 @@ void setup() {
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.htm").setFilter(ON_STA_FILTER);
   #ifdef ESP32
     server.addHandler(new SPIFFSEditor(SPIFFS,http_username,http_password)).setFilter(ON_STA_FILTER);
- #else
- //server.addHandler(new OurSPIFFSEditor(http_username,http_password)).setFilter(ON_STA_FILTER);
- server.addHandler(new SPIFFSEditor(http_username,http_password)).setFilter(ON_STA_FILTER);
- // server.addHandler(new SPIFFSEditor(http_username,http_password));
- #endif
+  #else
+   //server.addHandler(new OurSPIFFSEditor(http_username,http_password)).setFilter(ON_STA_FILTER);
+   server.addHandler(new SPIFFSEditor(http_username,http_password)).setFilter(ON_STA_FILTER);
+   // server.addHandler(new SPIFFSEditor(http_username,http_password));
+  #endif
     //SPIFFSEditor(const fs::FS& fs, const String& username=String(), const String& password=String());
 //  server.addHandler(new SPIFFSEditor(http_username, http_password)).setFilter(ON_STA_FILTER);
 
@@ -1519,7 +1513,7 @@ void setup() {
 
 void loop() {
   wifiManager.loop();
- dns.processNextRequest();
+  dns.processNextRequest();
    
   #ifdef ESP8266
   MDNS.update();

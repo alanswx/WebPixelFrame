@@ -110,7 +110,6 @@ class DisplayPixelsAnimatedGIF : public DisplayPixels {
  #ifdef ESP8266 
 
       // _file hold the last file we played
-      
       Dir dir = SPIFFS.openDir(_path);
       while (dir.next()) {
         File entry = dir.openFile("r");
@@ -214,9 +213,6 @@ class DisplayPixelsAnimatedGIF : public DisplayPixels {
        }
        
         dir.close();
-
-      
- 
  #endif
 
     }
