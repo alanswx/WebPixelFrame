@@ -1,5 +1,5 @@
 #pragma once
-#include <ESP8266WiFi.h>
+//#include <ESP8266WiFi.h>
 #include <NTPClient.h>
 
 #include "DisplayPixels.h"
@@ -76,6 +76,3 @@ class DisplayClock : public DisplayPixelsText
 
    NTPClient *timeClient;
 };
-
-
-

@@ -184,6 +184,3 @@ int DisplayPixelsText::drawString(uint8_t x, uint8_t y, const char *text, RgbCol
   }
   return totalWidth;
 }
-
-
-

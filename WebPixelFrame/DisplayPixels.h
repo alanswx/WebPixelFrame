@@ -10,6 +10,9 @@ const uint8_t TileHeight = 1;
 
 const uint16_t PixelCount = PanelWidth * PanelHeight * TileWidth * TileHeight;
 
+// This is for my TopHat:
+//typedef ColumnMajorAlternating90Layout MyPanelLayout;
+// This is for the instructable:
 typedef RowMajorAlternatingLayout MyPanelLayout;
 typedef NeoGrbFeature MyPixelColorFeature;
 
@@ -33,4 +36,3 @@ class DisplayPixels
   protected:
    
 };
-
